@@ -1,14 +1,21 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'dart:typed_data';
+
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'data/models/cache_entry.dart';
 import 'data/models/data_source_snapshot.dart';
 import 'data/repositories/data_source_snapshot_repository.dart';
 import 'data/services/pokeapi_csv_ingestion_service.dart';
+import 'data/services/pokemon_catalog_service.dart';
+import 'data/sources/data_source_snapshot_store.dart';
+import 'data/sources/pokemon_cache_store.dart';
 import 'data/sources/sqflite_data_source_snapshot_store.dart';
 import 'data/sources/sqflite_pokemon_cache_store.dart';
 import 'shared/clock.dart';
@@ -24,8 +31,40 @@ const _kCsvFiles = <String>[
 const _kSnapshotVersion = 'pokeapi-csv-2024-01-24';
 final DateTime _kPackagedAt = DateTime.utc(2024, 1, 24);
 
+class AppDependencies {
+  AppDependencies({
+    required this.cacheStore,
+    required this.catalogService,
+    required this.snapshotRepository,
+  });
+
+  final PokemonCacheStore cacheStore;
+  final PokemonCatalogService catalogService;
+  final DataSourceSnapshotRepository snapshotRepository;
+
+  factory AppDependencies.empty() {
+    const cacheStore = _NoopCacheStore();
+    final snapshotRepository = DataSourceSnapshotRepository(
+      store: _NoopSnapshotStore(),
+      clock: const SystemClock(),
+    );
+    return AppDependencies(
+      cacheStore: cacheStore,
+      catalogService: PokemonCatalogService(cacheStore: cacheStore),
+      snapshotRepository: snapshotRepository,
+    );
+  }
+}
+
+late AppDependencies appDependencies;
+
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (kIsWeb) {
+    appDependencies = AppDependencies.empty();
+    return;
+  }
 
   final csvRoot = await _resolveCsvRootPath();
   final checksum = await _computeChecksum(csvRoot, _kCsvFiles);
@@ -66,6 +105,13 @@ Future<void> bootstrap() async {
     csvRootPath: csvRoot,
     snapshot: snapshot,
   );
+
+  final catalogService = PokemonCatalogService(cacheStore: cacheStore);
+  appDependencies = AppDependencies(
+    cacheStore: cacheStore,
+    catalogService: catalogService,
+    snapshotRepository: snapshotRepository,
+  );
 }
 
 Future<String> _resolveCsvRootPath() async {
@@ -100,4 +146,31 @@ Future<String> _computeChecksum(
 
   final digest = sha256.convert(builder.takeBytes());
   return digest.toString();
+}
+
+class _NoopCacheStore implements PokemonCacheStore {
+  const _NoopCacheStore();
+
+  @override
+  Future<void> removeEntry(int pokemonId) async {}
+
+  @override
+  Future<void> saveEntry(PokemonCacheEntry entry) async {}
+
+  @override
+  Future<PokemonCacheEntry?> getEntry(int pokemonId) async => null;
+
+  @override
+  Future<List<PokemonCacheEntry>> getAllEntries({int? limit}) async => const [];
+}
+
+class _NoopSnapshotStore implements DataSourceSnapshotStore {
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<DataSourceSnapshot?> getSnapshot(DataSourceKind kind) async => null;
+
+  @override
+  Future<void> upsertSnapshot(DataSourceSnapshot snapshot) async {}
 }

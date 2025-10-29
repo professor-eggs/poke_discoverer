@@ -86,4 +86,15 @@ class SqflitePokemonCacheStore implements PokemonCacheStore {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
+  @override
+  Future<List<PokemonCacheEntry>> getAllEntries({int? limit}) async {
+    final db = await _ensureDatabase();
+    final rows = await db.query(
+      _tableName,
+      orderBy: '$_columnId ASC',
+      limit: limit,
+    );
+    return rows.map(PokemonCacheMapper.fromDbRow).toList(growable: false);
+  }
 }

@@ -92,4 +92,35 @@ void main() {
     final cached = await store.getEntry(pokemonId);
     expect(cached, isNull);
   });
+
+  test('getAllEntries returns entries ordered by pokemonId', () async {
+    final first = newEntry(DateTime.utc(2025, 1, 1));
+    final second = PokemonCacheEntry(
+      pokemonId: 1,
+      pokemon: const PokemonEntity(
+        id: 1,
+        name: 'bulbasaur',
+        speciesId: 1,
+        forms: [
+          PokemonFormEntity(
+            id: 1,
+            name: 'bulbasaur',
+            isDefault: true,
+            types: ['grass', 'poison'],
+            stats: [
+              PokemonStatValue(statId: 'hp', baseValue: 45),
+            ],
+            sprites: [],
+          ),
+        ],
+      ),
+      lastFetched: DateTime.utc(2025, 1, 1),
+    );
+
+    await store.saveEntry(first);
+    await store.saveEntry(second);
+
+    final all = await store.getAllEntries();
+    expect(all.map((e) => e.pokemonId), [1, 25]);
+  });
 }

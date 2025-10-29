@@ -5,4 +5,5 @@ abstract class PokemonCacheStore {
   Future<PokemonCacheEntry?> getEntry(int pokemonId);
   Future<void> saveEntry(PokemonCacheEntry entry);
   Future<void> removeEntry(int pokemonId);
+  Future<List<PokemonCacheEntry>> getAllEntries({int? limit});
 }
