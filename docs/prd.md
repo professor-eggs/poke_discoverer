@@ -2,16 +2,16 @@
 
 ## 1. Overview
 
-Manny’s PokéApp is a web and mobile app that interfaces with the PokéAPI to let users view, compare, and manage Pokémon data, design and save teams, and simulate mock battles. It should function fully offline once data is cached, and optionally sync user data via Google Drive.
+Manny’s PokéApp is a web and mobile app that interfaces with the PokeAPI to let users view, compare, and manage Pokemon data, design and save teams, and simulate mock battles. It should function fully offline once data is cached, and optionally sync user data via Google Drive.
 
 ---
 
 ## 2. Goals
 
-- Compare up to 6 Pokémon at a time by base or computed stats.
+- Compare up to 6 Pokemon at a time by base or computed stats.
 - Build and manage multiple teams.
 - Mock battles between teams (lightweight simulation for v1).
-- View detailed per-version Pokémon data including stats, moves, and evolutions.
+- View detailed per-version Pokemon data including stats, moves, and evolutions.
 - Offline-first with selective caching and optional cloud backup.
 
 ---
@@ -20,11 +20,12 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokéAPI to 
 
 **Framework:** Flutter 3.x
 **Language:** Dart
-**API:** PokéAPI ([https://pokeapi.co/](https://pokeapi.co/))
-**Storage:** Local SQLite (via `drift` or `isar`)
-**Offline Caching:** On-demand + version/region packs
-**Cloud Sync:** Google Drive (OAuth via `googleapis` + `flutter_secure_storage`)
-**Testing:** Flutter test + integration tests + mock PokéAPI
+**API:** PokeAPI ([https://pokeapi.co/](https://pokeapi.co/))
+**Storage:** Local SQLite (via drift or isar)
+**Offline Caching:** Seeded snapshot + on-demand packs
+**Cloud Sync:** Google Drive (OAuth via googleapis + flutter_secure_storage)
+**Testing:** Flutter test + integration tests + mock PokeAPI
+**Data Sources:** Bundled PokeAPI CSV extracts + Pokemon Showdown rule packs; media fetched on demand
 **AI Agentic Coding Compatibility:** Flutter + Dart are well-structured for LLM-based coding; type safety and unified UI make refactoring agent-friendly.
 
 ### Why Flutter
@@ -38,27 +39,27 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokéAPI to 
 
 ## 4. Core Features
 
-### 4.1 Pokémon Comparison View
+### 4.1 Pokemon Comparison View
 
-- View up to **6 Pokémon** side by side.
+- View up to **6 Pokemon** side by side.
 - Show: HP, Attack, Defense, Sp. Atk, Sp. Def, Speed.
 - Compare **Base Stats** or **Computed Stats** at user-selected level.
 - Switch between different **movesets** dynamically.
-- Sort Pokémon by any stat (asc/desc).
+- Sort Pokemon by any stat (asc/desc).
 
 ### 4.2 Team Management
 
 - Create and save multiple teams.
-- Add Pokémon with:
+- Add Pokemon with:
 
   - Selected **version group**.
   - Selected **level**.
   - Automatically limited movesets (level-up to level N + TM/TR/HM for version).
 
-- Teams can include Pokémon from **different version groups** in Open Mode.
+- Teams can include Pokemon from **different version groups** in Open Mode.
 - **Closed Mode** enforces tournament-style restrictions (same version group, species clause, etc.).
 
-### 4.3 Detailed Pokémon Page
+### 4.3 Detailed Pokemon Page
 
 - Tabs for: **Stats**, **Types**, **Movesets**, **Evolutions**.
 - Movesets include **Level-up**, **TM/TR/HM**, and filter by level.
@@ -81,9 +82,11 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokéAPI to 
 - **Offline-first architecture**: all cached data available offline.
 - **Caching strategy:**
 
-  - On-demand (when visited).
-  - Region/version pack downloads (gradual respect for API rate limits).
-  - Cache budget setting in preferences (soft limit; user can override).
+  - Seed the database from the bundled PokeAPI CSV snapshot to guarantee a baseline dataset offline.
+  - Pull incremental updates (new forms, moves, translations) by diffing newer CSV drops bundled with app updates.
+  - Stream large media (sprites, cries) on demand and record them in the cache manifest instead of shipping binaries.
+  - Region/version pack downloads now focus on competitive rule overlays and optional translations layered atop the seeded core.
+  - Cache budget preferences continue to govern downloaded media and generated analytics while leaving the seeded dataset untouched.
 
 - **Cloud backup:**
 
@@ -101,15 +104,16 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokéAPI to 
 | **Storage**        | Estimate cache size before downloads; enforce user-set cache cap.     |
 | **Offline Mode**   | Full offline operation once data cached.                              |
 | **Accessibility**  | Colorblind-safe palettes, scalable fonts, high contrast themes.       |
-| **Localization**   | English only for now; rely on PokéAPI if localized text available.    |
-| **Data Integrity** | Use PokéAPI directly; fallback policies TBD.                          |
-| **Licensing**      | Start with PokéAPI official sprites; user opt-in for community packs. |
+| **Localization**   | English only for now; rely on PokeAPI if localized text available.    |
+| **Data Integrity** | Validate bundled CSV/Showdown snapshots with checksums; rollback to last good seed on failure. |
+| **Media Strategy** | Sprites and cries are streamed on demand; cache manifest tracks downloads for pruning.          |
+| **Licensing**      | Start with PokeAPI official sprites; user opt-in for community packs. |
 
 ---
 
 ## 6. Stat Calculation Policy
 
-To compute “average” Pokémon stats at a chosen level:
+To compute “average” Pokemon stats at a chosen level:
 
 ```
 Stat = (((2 × BaseStat + IV + (EV/4)) × Level) / 100) + 5
@@ -122,7 +126,7 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 ## 7. Data Model
 
-### Pokémon
+### Pokemon
 
 - id, name, base_stats {hp, atk, def, spa, spd, spe}
 - types[]
@@ -162,14 +166,29 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 ---
 
+### SourceSnapshot
+
+- id, dataset (pokeapi_csv | showdown_rules), upstream_version, checksum
+- packaged_at, imported_at, source_commit_hash
+
+### SourceImportLog
+
+- id, snapshot_id, status (pending/success/failure)
+- started_at, finished_at, error_message
+
+### MediaAssetDownload
+
+- asset_id, pokemon_form_id?, kind (sprite | cry)
+- remote_url, local_path, byte_size, fetched_at, last_used_at
+
 ## 8. UX Outline
 
 **Primary Screens:**
 
-1. **Pokémon Browser** – search, filter, and sort.
-2. **Compare View** – up to 6 Pokémon, radar and tabular stats.
+1. **Pokemon Browser** – search, filter, and sort.
+2. **Compare View** – up to 6 Pokemon, radar and tabular stats.
 3. **Detail Page** – version tabs, movesets, evolutions, add to team.
-4. **Team Builder** – add/edit Pokémon, open/closed mode toggle.
+4. **Team Builder** – add/edit Pokemon, open/closed mode toggle.
 5. **Mock Battle** – select two teams, simulate, show summary.
 6. **Settings** – cache management, cloud sync, accessibility, about.
 
@@ -179,9 +198,9 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 | Phase       | Duration  | Key Deliverables                                                     |
 | ----------- | --------- | -------------------------------------------------------------------- |
-| **Phase 1** | 2–3 weeks | Flutter setup, PokéAPI client, local DB, cache infra, browsing list. |
+| **Phase 1** | 2–3 weeks | Flutter setup, PokeAPI client, local DB, cache infra, browsing list. |
 | **Phase 2** | 2 weeks   | Compare view + stat computation + sorting.                           |
-| **Phase 3** | 2 weeks   | Team builder (save/load) + detailed Pokémon pages.                   |
+| **Phase 3** | 2 weeks   | Team builder (save/load) + detailed Pokemon pages.                   |
 | **Phase 4** | 2 weeks   | Mock battle lite + Google Drive backup integration.                  |
 | **Phase 5** | 1 week    | QA, polish, accessibility pass.                                      |
 
@@ -202,8 +221,9 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 | Risk                | Mitigation                                                          |
 | ------------------- | ------------------------------------------------------------------- |
-| PokéAPI rate limits | Implement gradual fetch with backoff; allow partial pack downloads. |
+| PokeAPI rate limits | Implement gradual fetch with backoff; allow partial pack downloads. |
 | Incomplete data     | Cache schema versioning for future enrichment.                      |
+| Snapshot drift      | Track CSV/Showdown versions; ship migrations and checksum rollbacks. |
 | App size growth     | Allow cache budget setting; prune least-used data.                  |
 | Sync conflicts      | Simple last-write-wins; option to view change logs.                 |
 
@@ -212,7 +232,7 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 ## 12. Next Steps
 
 1. Create Flutter repo with skeleton architecture (data → domain → UI layers).
-2. Implement PokéAPI client with caching and version group mapping.
+2. Implement PokeAPI client with caching and version group mapping.
 3. Build core Compare View and Team Builder screens.
 4. Draft UI mockups and theming guidelines.
 5. Begin incremental data pack preloading pipeline.

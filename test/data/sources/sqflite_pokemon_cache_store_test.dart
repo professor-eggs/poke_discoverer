@@ -9,7 +9,7 @@ void main() {
   late SqflitePokemonCacheStore store;
 
   const pokemonId = 25;
-  const demoPokemon = PokemonEntity(
+  final demoPokemon = PokemonEntity(
     id: pokemonId,
     name: 'pikachu',
     speciesId: 25,
@@ -19,7 +19,7 @@ void main() {
         name: 'pikachu-base',
         isDefault: true,
         types: ['electric'],
-        stats: [
+        stats: const [
           PokemonStatValue(statId: 'hp', baseValue: 35),
           PokemonStatValue(statId: 'atk', baseValue: 55),
         ],
