@@ -82,6 +82,8 @@ void main() {
       () async {
         final now = DateTime.utc(2025, 1, 2, 3);
         when(() => clock.now()).thenAnswer((_) => now);
+        when(() => cacheStore.getEntry(pokemonId))
+            .thenAnswer((_) async => null);
         when(() => remoteSource.fetchPokemonById(pokemonId))
             .thenAnswer((_) async => DataResult.success(demoPokemon));
 
