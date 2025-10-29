@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:poke_discoverer/src/data/models/cache_entry.dart';
@@ -47,8 +45,7 @@ void main() {
       PokemonCacheEntry(
         pokemonId: pokemonId,
         pokemon: demoPokemon,
-        lastFetched:
-            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        lastFetched: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       ),
     );
   });
@@ -77,34 +74,31 @@ void main() {
       reset(clock);
     });
 
-    test(
-      'fetchPokemon refreshes cache when remote fetch succeeds',
-      () async {
-        final now = DateTime.utc(2025, 1, 2, 3);
-        when(() => clock.now()).thenAnswer((_) => now);
-        when(() => cacheStore.getEntry(pokemonId))
-            .thenAnswer((_) async => null);
-        when(() => remoteSource.fetchPokemonById(pokemonId))
-            .thenAnswer((_) async => DataResult.success(demoPokemon));
+    test('fetchPokemon refreshes cache when remote fetch succeeds', () async {
+      final now = DateTime.utc(2025, 1, 2, 3);
+      when(() => clock.now()).thenAnswer((_) => now);
+      when(() => cacheStore.getEntry(pokemonId)).thenAnswer((_) async => null);
+      when(
+        () => remoteSource.fetchPokemonById(pokemonId),
+      ).thenAnswer((_) async => DataResult.success(demoPokemon));
 
-        when(() => cacheStore.saveEntry(any())).thenAnswer((_) async {});
+      when(() => cacheStore.saveEntry(any())).thenAnswer((_) async {});
 
-        final result = await repository.fetchPokemon(pokemonId);
+      final result = await repository.fetchPokemon(pokemonId);
 
-        expect(result.isSuccess, isTrue);
-        expect(result.requireValue(), equals(demoPokemon));
+      expect(result.isSuccess, isTrue);
+      expect(result.requireValue(), equals(demoPokemon));
 
-        final entryCapture = verify(
-          () => cacheStore.saveEntry(captureAny()),
-        ).captured;
+      final entryCapture = verify(
+        () => cacheStore.saveEntry(captureAny()),
+      ).captured;
 
-        final savedEntry = entryCapture.single as PokemonCacheEntry;
+      final savedEntry = entryCapture.single as PokemonCacheEntry;
 
-        expect(savedEntry.pokemon, equals(demoPokemon));
-        expect(savedEntry.pokemonId, pokemonId);
-        expect(savedEntry.lastFetched, now);
-      },
-    );
+      expect(savedEntry.pokemon, equals(demoPokemon));
+      expect(savedEntry.pokemonId, pokemonId);
+      expect(savedEntry.lastFetched, now);
+    });
 
     test(
       'fetchPokemon returns cached value when remote fails and cache is fresh',
@@ -117,10 +111,12 @@ void main() {
         );
 
         when(() => clock.now()).thenAnswer((_) => now);
-        when(() => remoteSource.fetchPokemonById(pokemonId))
-            .thenAnswer((_) async => DataResult.failure('network down'));
-        when(() => cacheStore.getEntry(pokemonId))
-            .thenAnswer((_) async => cachedEntry);
+        when(
+          () => remoteSource.fetchPokemonById(pokemonId),
+        ).thenAnswer((_) async => DataResult.failure('network down'));
+        when(
+          () => cacheStore.getEntry(pokemonId),
+        ).thenAnswer((_) async => cachedEntry);
 
         final result = await repository.fetchPokemon(pokemonId);
 
@@ -141,10 +137,12 @@ void main() {
         );
 
         when(() => clock.now()).thenAnswer((_) => now);
-        when(() => remoteSource.fetchPokemonById(pokemonId))
-            .thenAnswer((_) async => DataResult.failure('timeout'));
-        when(() => cacheStore.getEntry(pokemonId))
-            .thenAnswer((_) async => staleEntry);
+        when(
+          () => remoteSource.fetchPokemonById(pokemonId),
+        ).thenAnswer((_) async => DataResult.failure('timeout'));
+        when(
+          () => cacheStore.getEntry(pokemonId),
+        ).thenAnswer((_) async => staleEntry);
         when(() => cacheStore.removeEntry(pokemonId)).thenAnswer((_) async {});
 
         final result = await repository.fetchPokemon(pokemonId);
@@ -155,22 +153,22 @@ void main() {
       },
     );
 
-    test(
-      'forceRefresh bypasses cache when requested',
-      () async {
-        final now = DateTime.utc(2025, 1, 12);
-        when(() => clock.now()).thenAnswer((_) => now);
-        when(() => remoteSource.fetchPokemonById(pokemonId))
-            .thenAnswer((_) async => DataResult.success(demoPokemon));
-        when(() => cacheStore.saveEntry(any())).thenAnswer((_) async {});
+    test('forceRefresh bypasses cache when requested', () async {
+      final now = DateTime.utc(2025, 1, 12);
+      when(() => clock.now()).thenAnswer((_) => now);
+      when(
+        () => remoteSource.fetchPokemonById(pokemonId),
+      ).thenAnswer((_) async => DataResult.success(demoPokemon));
+      when(() => cacheStore.saveEntry(any())).thenAnswer((_) async {});
 
-        final result =
-            await repository.fetchPokemon(pokemonId, forceRefresh: true);
+      final result = await repository.fetchPokemon(
+        pokemonId,
+        forceRefresh: true,
+      );
 
-        expect(result.requireValue(), equals(demoPokemon));
-        verifyNever(() => cacheStore.getEntry(any()));
-        verify(() => remoteSource.fetchPokemonById(pokemonId)).called(1);
-      },
-    );
+      expect(result.requireValue(), equals(demoPokemon));
+      verifyNever(() => cacheStore.getEntry(any()));
+      verify(() => remoteSource.fetchPokemonById(pokemonId)).called(1);
+    });
   });
 }

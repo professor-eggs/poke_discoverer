@@ -1,4 +1,4 @@
 {
-  "chatgpt.runCodexInWindowsSubsystemForLinux": true,
+  "chatgpt.runCodexInWindowsSubsystemForLinux": false,
   "cmake.sourceDirectory": "C:/dev-projects/professor-eggs/poke-manny/poke_discoverer/linux"
 }
