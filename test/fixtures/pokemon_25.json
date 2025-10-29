@@ -1,0 +1,44 @@
+{
+  "id": 25,
+  "name": "pikachu",
+  "is_default": true,
+  "species": {
+    "name": "pikachu",
+    "url": "https://pokeapi.co/api/v2/pokemon-species/25/"
+  },
+  "forms": [
+    {
+      "name": "pikachu",
+      "url": "https://pokeapi.co/api/v2/pokemon-form/25/"
+    },
+    {
+      "name": "pikachu-rock-star",
+      "url": "https://pokeapi.co/api/v2/pokemon-form/10080/"
+    }
+  ],
+  "sprites": {
+    "front_default": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png"
+  },
+  "stats": [
+    {
+      "base_stat": 35,
+      "stat": {
+        "name": "hp"
+      }
+    },
+    {
+      "base_stat": 55,
+      "stat": {
+        "name": "attack"
+      }
+    }
+  ],
+  "types": [
+    {
+      "slot": 1,
+      "type": {
+        "name": "electric"
+      }
+    }
+  ]
+}
