@@ -42,6 +42,17 @@ void main() {
     ],
   );
 
+  setUpAll(() {
+    registerFallbackValue(
+      PokemonCacheEntry(
+        pokemonId: pokemonId,
+        pokemon: demoPokemon,
+        lastFetched:
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      ),
+    );
+  });
+
   group('PokemonRepository', () {
     late PokemonRemoteSource remoteSource;
     late PokemonCacheStore cacheStore;
@@ -70,7 +81,7 @@ void main() {
       'fetchPokemon refreshes cache when remote fetch succeeds',
       () async {
         final now = DateTime.utc(2025, 1, 2, 3);
-        when(() => clock.now()).thenReturn(now);
+        when(() => clock.now()).thenAnswer((_) => now);
         when(() => remoteSource.fetchPokemonById(pokemonId))
             .thenAnswer((_) async => DataResult.success(demoPokemon));
 
@@ -103,7 +114,7 @@ void main() {
           lastFetched: now.subtract(const Duration(days: 2)),
         );
 
-        when(() => clock.now()).thenReturn(now);
+        when(() => clock.now()).thenAnswer((_) => now);
         when(() => remoteSource.fetchPokemonById(pokemonId))
             .thenAnswer((_) async => DataResult.failure('network down'));
         when(() => cacheStore.getEntry(pokemonId))
@@ -127,7 +138,7 @@ void main() {
           lastFetched: now.subtract(const Duration(days: 10)),
         );
 
-        when(() => clock.now()).thenReturn(now);
+        when(() => clock.now()).thenAnswer((_) => now);
         when(() => remoteSource.fetchPokemonById(pokemonId))
             .thenAnswer((_) async => DataResult.failure('timeout'));
         when(() => cacheStore.getEntry(pokemonId))
@@ -146,7 +157,7 @@ void main() {
       'forceRefresh bypasses cache when requested',
       () async {
         final now = DateTime.utc(2025, 1, 12);
-        when(() => clock.now()).thenReturn(now);
+        when(() => clock.now()).thenAnswer((_) => now);
         when(() => remoteSource.fetchPokemonById(pokemonId))
             .thenAnswer((_) async => DataResult.success(demoPokemon));
         when(() => cacheStore.saveEntry(any())).thenAnswer((_) async {});
