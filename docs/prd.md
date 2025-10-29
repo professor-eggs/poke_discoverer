@@ -25,7 +25,7 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokeAPI to l
 **Offline Caching:** Seeded snapshot + on-demand packs
 **Cloud Sync:** Google Drive (OAuth via googleapis + flutter_secure_storage)
 **Testing:** Flutter test + integration tests + mock PokeAPI
-**Data Sources:** Bundled PokeAPI CSV extracts + Pokemon Showdown rule packs; media fetched on demand
+**Data Sources:** Bundled PokeAPI CSV extracts; media fetched on demand
 **AI Agentic Coding Compatibility:** Flutter + Dart are well-structured for LLM-based coding; type safety and unified UI make refactoring agent-friendly.
 
 ### Why Flutter
@@ -85,7 +85,7 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokeAPI to l
   - Seed the database from the bundled PokeAPI CSV snapshot to guarantee a baseline dataset offline.
   - Pull incremental updates (new forms, moves, translations) by diffing newer CSV drops bundled with app updates.
   - Stream large media (sprites, cries) on demand and record them in the cache manifest instead of shipping binaries.
-  - Region/version pack downloads now focus on competitive rule overlays and optional translations layered atop the seeded core.
+  - Region/version pack downloads remain optional add-ons layered atop the seeded core for future expansions or translations.
   - Cache budget preferences continue to govern downloaded media and generated analytics while leaving the seeded dataset untouched.
 
 - **Cloud backup:**
@@ -105,7 +105,7 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokeAPI to l
 | **Offline Mode**   | Full offline operation once data cached.                              |
 | **Accessibility**  | Colorblind-safe palettes, scalable fonts, high contrast themes.       |
 | **Localization**   | English only for now; rely on PokeAPI if localized text available.    |
-| **Data Integrity** | Validate bundled CSV/Showdown snapshots with checksums; rollback to last good seed on failure. |
+| **Data Integrity** | Validate bundled CSV snapshots with checksums; rollback to last good seed on failure. |
 | **Media Strategy** | Sprites and cries are streamed on demand; cache manifest tracks downloads for pruning.          |
 | **Licensing**      | Start with PokeAPI official sprites; user opt-in for community packs. |
 
@@ -168,7 +168,7 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 ### SourceSnapshot
 
-- id, dataset (pokeapi_csv | showdown_rules), upstream_version, checksum
+- id, dataset (pokeapi_csv), upstream_version, checksum
 - packaged_at, imported_at, source_commit_hash
 
 ### SourceImportLog
@@ -223,7 +223,7 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 | ------------------- | ------------------------------------------------------------------- |
 | PokeAPI rate limits | Implement gradual fetch with backoff; allow partial pack downloads. |
 | Incomplete data     | Cache schema versioning for future enrichment.                      |
-| Snapshot drift      | Track CSV/Showdown versions; ship migrations and checksum rollbacks. |
+| Snapshot drift      | Track CSV versions; ship migrations and checksum rollbacks. |
 | App size growth     | Allow cache budget setting; prune least-used data.                  |
 | Sync conflicts      | Simple last-write-wins; option to view change logs.                 |
 
