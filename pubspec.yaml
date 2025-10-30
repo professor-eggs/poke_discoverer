@@ -38,6 +38,7 @@ dependencies:
   equatable: ^2.0.5
   csv: ^6.0.0
   path: ^1.9.0
+  sqflite_common_ffi_web: ^0.4.2
   crypto: ^3.0.3
   sqflite: ^2.3.3+1
 
@@ -64,6 +65,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/pokeapi/csv/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

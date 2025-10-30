@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:csv/csv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
@@ -7,6 +9,7 @@ import 'package:poke_discoverer/src/data/models/data_source_snapshot.dart';
 import 'package:poke_discoverer/src/data/models/pokemon_models.dart';
 import 'package:poke_discoverer/src/data/repositories/data_source_snapshot_repository.dart';
 import 'package:poke_discoverer/src/data/services/pokeapi_csv_ingestion_service.dart';
+import 'package:poke_discoverer/src/data/services/pokemon_csv_loader.dart';
 import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
 import 'package:poke_discoverer/src/shared/clock.dart';
 
@@ -22,6 +25,7 @@ void main() {
   late DataSourceSnapshotRepository snapshotRepository;
   late Clock clock;
   late PokeapiCsvIngestionService service;
+  late CsvLoader csvLoader;
 
   final snapshot = DataSourceSnapshot(
     kind: DataSourceKind.pokeapiCsv,
@@ -52,10 +56,12 @@ void main() {
     cacheStore = _MockCacheStore();
     snapshotRepository = _MockSnapshotRepository();
     clock = _MockClock();
+    csvLoader = _FixtureCsvLoader(rootPath: fixturesRoot);
     service = PokeapiCsvIngestionService(
       cacheStore: cacheStore,
       snapshotRepository: snapshotRepository,
       clock: clock,
+      csvLoader: csvLoader,
     );
   });
 
@@ -80,13 +86,7 @@ void main() {
       return incoming.copyWith(importedAt: now);
     });
 
-    final csvRoot = p.join(Directory.current.path, fixturesRoot);
-    expect(File(p.join(csvRoot, 'pokemon.csv')).existsSync(), isTrue);
-
-    await service.ingest(
-      csvRootPath: csvRoot,
-      snapshot: snapshot,
-    );
+    await service.ingest(snapshot: snapshot);
 
     expect(savedEntries, hasLength(2));
     verify(() => snapshotRepository.needsImport(any())).called(1);
@@ -114,14 +114,42 @@ void main() {
     when(() => snapshotRepository.needsImport(any()))
         .thenAnswer((_) async => false);
 
-    final csvRoot = p.join(Directory.current.path, fixturesRoot);
-
-    await service.ingest(
-      csvRootPath: csvRoot,
-      snapshot: snapshot,
-    );
+    await service.ingest(snapshot: snapshot);
 
     verifyNever(() => cacheStore.saveEntry(any()));
     verifyNever(() => snapshotRepository.markImported(any()));
   });
+}
+
+class _FixtureCsvLoader implements CsvLoader {
+  _FixtureCsvLoader({required this.rootPath});
+
+  final String rootPath;
+
+  @override
+  Future<List<Map<String, String>>> readCsv(String fileName) async {
+    final raw = await readCsvString(fileName);
+    final rows =
+        const CsvToListConverter(eol: '\n').convert(raw.replaceAll('\r', ''));
+    if (rows.isEmpty) return const [];
+    final headers = rows.first.map((value) => value.toString()).toList();
+    return rows
+        .skip(1)
+        .map(
+          (row) => Map<String, String>.fromIterables(
+            headers,
+            row.map((value) => value?.toString() ?? ''),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<String> readCsvString(String fileName) async {
+    final file = File(p.join(rootPath, fileName));
+    if (!await file.exists()) {
+      throw FileSystemException('Missing CSV fixture', file.path);
+    }
+    return file.readAsString();
+  }
 }

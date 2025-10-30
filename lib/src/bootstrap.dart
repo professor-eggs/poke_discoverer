@@ -1,6 +1,3 @@
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -8,12 +5,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'data/models/cache_entry.dart';
 import 'data/models/data_source_snapshot.dart';
 import 'data/repositories/data_source_snapshot_repository.dart';
 import 'data/services/pokeapi_csv_ingestion_service.dart';
 import 'data/services/pokemon_catalog_service.dart';
+import 'data/services/pokemon_csv_loader.dart';
+import 'data/services/pokemon_csv_parser.dart';
 import 'data/sources/data_source_snapshot_store.dart';
 import 'data/sources/pokemon_cache_store.dart';
 import 'data/sources/sqflite_data_source_snapshot_store.dart';
@@ -36,11 +36,13 @@ class AppDependencies {
     required this.cacheStore,
     required this.catalogService,
     required this.snapshotRepository,
+    required this.csvLoader,
   });
 
   final PokemonCacheStore cacheStore;
   final PokemonCatalogService catalogService;
   final DataSourceSnapshotRepository snapshotRepository;
+  final CsvLoader csvLoader;
 
   factory AppDependencies.empty() {
     const cacheStore = _NoopCacheStore();
@@ -52,6 +54,7 @@ class AppDependencies {
       cacheStore: cacheStore,
       catalogService: PokemonCatalogService(cacheStore: cacheStore),
       snapshotRepository: snapshotRepository,
+      csvLoader: _NoopCsvLoader(),
     );
   }
 }
@@ -60,14 +63,17 @@ late AppDependencies appDependencies;
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  appDependencies = await initializeDependencies();
+}
 
+Future<AppDependencies> initializeDependencies({
+  bool forceImport = false,
+}) async {
   if (kIsWeb) {
-    appDependencies = AppDependencies.empty();
-    return;
+    databaseFactory = databaseFactoryFfiWeb;
   }
 
-  final csvRoot = await _resolveCsvRootPath();
-  final checksum = await _computeChecksum(csvRoot, _kCsvFiles);
+  final csvLoader = await _createLoader();
 
   final databasesPath = await getDatabasesPath();
   final cacheDbPath = p.join(databasesPath, 'pokemon_cache.db');
@@ -88,10 +94,17 @@ Future<void> bootstrap() async {
     clock: const SystemClock(),
   );
 
+  if (forceImport) {
+    await snapshotRepository.clear();
+  }
+
+  final checksum = await _computeChecksum(csvLoader, _kCsvFiles);
+
   final ingestionService = PokeapiCsvIngestionService(
     cacheStore: cacheStore,
     snapshotRepository: snapshotRepository,
     clock: const SystemClock(),
+    csvLoader: csvLoader,
   );
 
   final snapshot = DataSourceSnapshot(
@@ -101,35 +114,32 @@ Future<void> bootstrap() async {
     packagedAt: _kPackagedAt,
   );
 
-  await ingestionService.ingest(
-    csvRootPath: csvRoot,
-    snapshot: snapshot,
-  );
+  await ingestionService.ingest(snapshot: snapshot);
 
-  final catalogService = PokemonCatalogService(cacheStore: cacheStore);
-  appDependencies = AppDependencies(
+  return AppDependencies(
     cacheStore: cacheStore,
-    catalogService: catalogService,
+    catalogService: PokemonCatalogService(cacheStore: cacheStore),
     snapshotRepository: snapshotRepository,
+    csvLoader: csvLoader,
   );
 }
 
-Future<String> _resolveCsvRootPath() async {
-  final devPath = Directory(
-    p.join(Directory.current.path, 'data', 'pokeapi-master', 'data', 'v2', 'csv'),
-  );
-  if (await devPath.exists()) {
-    return devPath.path;
+Future<CsvLoader> _createLoader() async {
+  if (kIsWeb) {
+    return createCsvLoader(assetRoot: 'assets/pokeapi/csv');
   }
-
-  throw StateError(
-    'Bundled PokeAPI CSV snapshot not found. Expected at '
-    '${devPath.path}. Configure asset-based loading before shipping.',
+  final root = p.join(
+    'data',
+    'pokeapi-master',
+    'data',
+    'v2',
+    'csv',
   );
+  return createCsvLoader(filesystemRoot: root);
 }
 
 Future<String> _computeChecksum(
-  String root,
+  CsvLoader loader,
   List<String> fileNames,
 ) async {
   final builder = BytesBuilder(copy: false);
@@ -137,13 +147,9 @@ Future<String> _computeChecksum(
   for (final fileName in sorted) {
     builder.add(fileName.codeUnits);
     builder.add(<int>[0]);
-    final file = File(p.join(root, fileName));
-    if (!await file.exists()) {
-      throw FileSystemException('Missing CSV file for checksum', file.path);
-    }
-    builder.add(await file.readAsBytes());
+    final content = await loader.readCsvString(fileName);
+    builder.add(content.codeUnits);
   }
-
   final digest = sha256.convert(builder.takeBytes());
   return digest.toString();
 }
@@ -173,4 +179,14 @@ class _NoopSnapshotStore implements DataSourceSnapshotStore {
 
   @override
   Future<void> upsertSnapshot(DataSourceSnapshot snapshot) async {}
+}
+
+class _NoopCsvLoader implements CsvLoader {
+  const _NoopCsvLoader();
+
+  @override
+  Future<List<Map<String, String>>> readCsv(String fileName) async => const [];
+
+  @override
+  Future<String> readCsvString(String fileName) async => '';
 }

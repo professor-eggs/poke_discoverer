@@ -21,11 +21,11 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokeAPI to l
 **Framework:** Flutter 3.x
 **Language:** Dart
 **API:** PokeAPI ([https://pokeapi.co/](https://pokeapi.co/))
-**Storage:** Local SQLite (via drift or isar)
-**Offline Caching:** Seeded snapshot + on-demand packs
+**Storage:** Local SQLite via `sqflite` (native) + `sqflite_common_ffi_web` (web)
+**Offline Caching:** Bundled CSV snapshot seeded at bootstrap, optional on-demand packs
 **Cloud Sync:** Google Drive (OAuth via googleapis + flutter_secure_storage)
 **Testing:** Flutter test + integration tests + mock PokeAPI
-**Data Sources:** Bundled PokeAPI CSV extracts; media fetched on demand
+**Data Sources:** Bundled Pok�API CSV extracts (see Data Ingestion); media fetched on demand
 **AI Agentic Coding Compatibility:** Flutter + Dart are well-structured for LLM-based coding; type safety and unified UI make refactoring agent-friendly.
 
 ### Why Flutter
@@ -34,6 +34,15 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokeAPI to l
 - Responsive and performant for tablets and phones.
 - Clean dev experience (hot reload, simple build pipeline).
 - Excellent offline support via native storage.
+
+---
+
+## Data Ingestion Strategy
+
+- Ship the official Pok�API CSV dump inside the Flutter asset bundle (`assets/pokeapi/csv/`) so web builds remain fully offline-capable.
+- Keep the same CSV hierarchy in `data/pokeapi-master/data/v2/csv/` for tooling, integration tests, and native/desktop ingestion.
+- `initializeDependencies()` hashes the CSV bundle, seeds SQLite via the ingestion service, and records a `DATA_SOURCE_SNAPSHOT` so future updates can diff versions safely.
+- Large binaries (sprites, cries) are **not** bundled. They are pulled on-demand from Pok�API and recorded as `MEDIA_ASSET` downloads for pruning.
 
 ---
 
@@ -82,9 +91,10 @@ Manny’s PokéApp is a web and mobile app that interfaces with the PokeAPI to l
 - **Offline-first architecture**: all cached data available offline.
 - **Caching strategy:**
 
-  - Seed the database from the bundled PokeAPI CSV snapshot to guarantee a baseline dataset offline.
+  - Seed the database from the bundled Pok�API CSV snapshot (`assets/pokeapi/csv/`) to guarantee a baseline dataset offline on every platform.
+  - Desktop/native builds may read CSVs from `data/pokeapi-master/data/v2/csv/` during development; the asset bundle keeps parity for production and the web.
   - Pull incremental updates (new forms, moves, translations) by diffing newer CSV drops bundled with app updates.
-  - Stream large media (sprites, cries) on demand and record them in the cache manifest instead of shipping binaries.
+  - Stream large media (sprites, cries) on demand from Pok�API endpoints and record them in the cache manifest instead of shipping binaries.
   - Region/version pack downloads remain optional add-ons layered atop the seeded core for future expansions or translations.
   - Cache budget preferences continue to govern downloaded media and generated analytics while leaving the seeded dataset untouched.
 

@@ -4,6 +4,8 @@
 - Adopt a three-layer structure (`data` → `domain` → `presentation`) to keep networking, persistence, and UI concerns isolated. Repositories expose domain models, while view models remain test-friendly.
 - Normalize authoritative PokeAPI data so forms, stats, and version group variants are reusable without duplication. User-authored records (teams, battle logs) reference canonical entities to stay DRY.
 - Track PokeAPI CSV snapshots with checksums so the app can migrate between bundled versions without live network dependency.
+- Bundle the official PokéAPI CSV hierarchy inside `assets/pokeapi/csv/` for deterministic web seeding; native/desktop builds keep the same dump in `data/pokeapi-master/data/v2/csv/` for local tooling.
+- Avoid shipping large media blobs. Sprites and cries stay in the cloud, fetched on demand and tracked via `MEDIA_ASSET` so cache pruning remains centralized.
 - Shared infrastructure services (cache manager, sync orchestrator, mock battle engine) live under a dedicated `infrastructure` module used by repositories and domain services.
 
 ## Entity Relationship Diagram
@@ -93,7 +95,7 @@ erDiagram
 
 | Phase | Focus & Deliverables | Key Unit Tests | Key Integration Tests |
 | ----- | -------------------- | -------------- | --------------------- |
-| **Phase 1 - Foundation & Data Layer (2-3 weeks)** | Flutter scaffold, dependency injection, bundled dataset ingestion (PokeAPI CSV), local database schema, repository skeleton, asset manifest service. | Repositories (Pokemon, Move, Version), CSV->entity mappers, cache manifest logic, asset hashing. | Sqflite/Isar import round-trips, snapshot checksum validation, offline-first fetch with mocked PokeAPI, cache eviction workflow. |
+| **Phase 1 - Foundation & Data Layer (2-3 weeks)** | Flutter scaffold, dependency injection, bundled dataset ingestion (PokeAPI CSV), local database schema, repository skeleton, asset manifest service. | Repositories (Pokemon, Move, Version), CSV->entity mappers, cache manifest logic, asset hashing. | Sqflite import round-trips (native + web via sqflite_common_ffi_web), snapshot checksum validation, offline-first fetch with mocked PokéAPI, cache eviction workflow. |
 | **Phase 2 - Browsing & Comparison (2 weeks)** | Pokemon browser, advanced search/filter, comparison view with base/computed stats, type matchup preview, selective caching triggers. | `StatCalculator`, `ComparisonViewModel`, filter combinators, type effectiveness resolver. | Widget tests for comparison screen, integration test ensuring cached stats served offline, golden tests for comparison cards (baseline accessibility). |
 | **Phase 3 - Teams & Detail (2 weeks)** | Detail pages per version group, legal learnset display, team builder with open/closed mode rules, team persistence and validation. | `TeamValidator`, `LearnsetService`, `TeamRepository`, domain rules for open vs closed mode. | Integration test covering full team creation/edit flow, DB + UI sync for form/version switches, accessibility audit automation (semantics checks). |
 | **Phase 4 - Mock Battles & Cloud Sync (2 weeks)** | Lightweight battle simulation, battle logs, Google Drive backup/restore, conflict resolution (last-write-wins) with manifest. | `BattleScoringService`, `SyncOrchestrator`, backup diff builder, serialization guards. | Full battle simulation against fixture teams, sync round-trip with mocked Drive API, offline-to-online reconciliation scenario. |

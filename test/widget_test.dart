@@ -1,14 +1,17 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:poke_discoverer/main.dart';
 import 'package:poke_discoverer/src/bootstrap.dart';
+import 'package:poke_discoverer/src/data/models/cache_entry.dart';
+import 'package:poke_discoverer/src/data/models/data_source_snapshot.dart';
+import 'package:poke_discoverer/src/data/models/pokemon_models.dart';
+import 'package:poke_discoverer/src/data/repositories/data_source_snapshot_repository.dart';
+import 'package:poke_discoverer/src/data/services/pokemon_catalog_service.dart';
+import 'package:poke_discoverer/src/data/services/pokemon_csv_loader.dart';
+import 'package:poke_discoverer/src/data/sources/data_source_snapshot_store.dart';
+import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
+import 'package:poke_discoverer/src/shared/clock.dart';
 
 void main() {
   setUp(() {
@@ -19,12 +22,171 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Pokémon Catalog'), findsOneWidget);
+    expect(find.text('Pokemon Catalog'), findsOneWidget);
     expect(
       find.text(
-        'No cached Pokémon available yet. Seed the snapshot to view entries.',
+        'No cached Pokemon available yet. Seed the snapshot to view entries.',
       ),
       findsOneWidget,
     );
   });
+
+  testWidgets('Filters catalog by search term and type', (tester) async {
+    final pokemon = <PokemonEntity>[
+      _buildPokemon(
+        id: 1,
+        name: 'bulbasaur',
+        types: const ['grass', 'poison'],
+        stats: const [45, 49, 49, 65, 65, 45],
+      ),
+      _buildPokemon(
+        id: 4,
+        name: 'charmander',
+        types: const ['fire'],
+        stats: const [39, 52, 43, 60, 50, 65],
+      ),
+      _buildPokemon(
+        id: 7,
+        name: 'squirtle',
+        types: const ['water'],
+        stats: const [44, 48, 65, 50, 64, 43],
+      ),
+    ];
+
+    final cacheStore = _InMemoryPokemonCacheStore.fromPokemon(pokemon);
+
+    appDependencies = AppDependencies(
+      cacheStore: cacheStore,
+      catalogService: PokemonCatalogService(cacheStore: cacheStore),
+      snapshotRepository: DataSourceSnapshotRepository(
+        store: _NoopSnapshotStore(),
+        clock: const SystemClock(),
+      ),
+      csvLoader: const _StubCsvLoader(),
+    );
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bulbasaur'), findsOneWidget);
+    expect(find.text('Charmander'), findsOneWidget);
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('pokemonCatalogSearchField')),
+      'char',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Charmander'), findsOneWidget);
+    expect(find.text('Bulbasaur'), findsNothing);
+    expect(find.text('Squirtle'), findsNothing);
+
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Fire'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Charmander'), findsOneWidget);
+    expect(find.text('Bulbasaur'), findsNothing);
+    expect(find.text('Squirtle'), findsNothing);
+  });
+}
+
+PokemonEntity _buildPokemon({
+  required int id,
+  required String name,
+  required List<String> types,
+  required List<int> stats,
+}) {
+  final statIds = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
+  final statValues = <PokemonStatValue>[
+    for (var i = 0; i < stats.length; i++)
+      PokemonStatValue(statId: statIds[i], baseValue: stats[i]),
+  ];
+
+  return PokemonEntity(
+    id: id,
+    name: name,
+    speciesId: id,
+    forms: [
+      PokemonFormEntity(
+        id: id,
+        name: name,
+        isDefault: true,
+        types: types,
+        stats: statValues,
+        sprites: const [
+          MediaAssetReference(assetId: 'sprite', kind: MediaAssetKind.sprite),
+        ],
+      ),
+    ],
+  );
+}
+
+class _InMemoryPokemonCacheStore implements PokemonCacheStore {
+  _InMemoryPokemonCacheStore.fromPokemon(Iterable<PokemonEntity> pokemon) {
+    for (final entity in pokemon) {
+      _entries[entity.id] = PokemonCacheEntry(
+        pokemonId: entity.id,
+        pokemon: entity,
+        lastFetched: DateTime.utc(2024, 1, 1),
+      );
+    }
+  }
+
+  final Map<int, PokemonCacheEntry> _entries = <int, PokemonCacheEntry>{};
+
+  @override
+  Future<PokemonCacheEntry?> getEntry(int pokemonId) async =>
+      _entries[pokemonId];
+
+  @override
+  Future<void> removeEntry(int pokemonId) async {
+    _entries.remove(pokemonId);
+  }
+
+  @override
+  Future<void> saveEntry(PokemonCacheEntry entry) async {
+    _entries[entry.pokemonId] = entry;
+  }
+
+  @override
+  Future<List<PokemonCacheEntry>> getAllEntries({int? limit}) async {
+    final items = _entries.values.toList()
+      ..sort((a, b) => a.pokemonId.compareTo(b.pokemonId));
+    if (limit != null && limit < items.length) {
+      return items.sublist(0, limit);
+    }
+    return items;
+  }
+}
+
+class _NoopSnapshotStore implements DataSourceSnapshotStore {
+  DataSourceSnapshot? _snapshot;
+
+  @override
+  Future<void> clear() async {
+    _snapshot = null;
+  }
+
+  @override
+  Future<DataSourceSnapshot?> getSnapshot(DataSourceKind kind) async =>
+      _snapshot;
+
+  @override
+  Future<void> upsertSnapshot(DataSourceSnapshot snapshot) async {
+    _snapshot = snapshot;
+  }
+}
+
+class _StubCsvLoader implements CsvLoader {
+  const _StubCsvLoader();
+
+  @override
+  Future<List<Map<String, String>>> readCsv(String fileName) async => const [];
+
+  @override
+  Future<String> readCsvString(String fileName) async => '';
 }
