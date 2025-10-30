@@ -14,6 +14,7 @@ import 'data/services/pokeapi_csv_ingestion_service.dart';
 import 'data/services/pokemon_catalog_service.dart';
 import 'data/services/pokemon_csv_loader.dart';
 import 'data/services/pokemon_csv_parser.dart';
+import 'data/services/type_matchup_service.dart';
 import 'data/sources/data_source_snapshot_store.dart';
 import 'data/sources/pokemon_cache_store.dart';
 import 'data/sources/sqflite_data_source_snapshot_store.dart';
@@ -26,6 +27,7 @@ const _kCsvFiles = <String>[
   'stats.csv',
   'pokemon_types.csv',
   'types.csv',
+  'type_efficacy.csv',
 ];
 
 const _kSnapshotVersion = 'pokeapi-csv-2024-01-24';
@@ -37,12 +39,14 @@ class AppDependencies {
     required this.catalogService,
     required this.snapshotRepository,
     required this.csvLoader,
+    required this.typeMatchupService,
   });
 
   final PokemonCacheStore cacheStore;
   final PokemonCatalogService catalogService;
   final DataSourceSnapshotRepository snapshotRepository;
   final CsvLoader csvLoader;
+  final TypeMatchupService typeMatchupService;
 
   factory AppDependencies.empty() {
     const cacheStore = _NoopCacheStore();
@@ -55,6 +59,7 @@ class AppDependencies {
       catalogService: PokemonCatalogService(cacheStore: cacheStore),
       snapshotRepository: snapshotRepository,
       csvLoader: _NoopCsvLoader(),
+      typeMatchupService: const _NoopTypeMatchupService(),
     );
   }
 }
@@ -121,6 +126,7 @@ Future<AppDependencies> initializeDependencies({
     catalogService: PokemonCatalogService(cacheStore: cacheStore),
     snapshotRepository: snapshotRepository,
     csvLoader: csvLoader,
+    typeMatchupService: CsvTypeMatchupService(csvLoader: csvLoader),
   );
 }
 
@@ -189,4 +195,19 @@ class _NoopCsvLoader implements CsvLoader {
 
   @override
   Future<String> readCsvString(String fileName) async => '';
+}
+
+class _NoopTypeMatchupService implements TypeMatchupService {
+  const _NoopTypeMatchupService();
+
+  @override
+  Future<TypeMatchupSummary> defensiveSummary(
+    List<String> defendingTypes,
+  ) async {
+    return const TypeMatchupSummary(
+      weaknesses: <TypeEffectivenessEntry>[],
+      resistances: <TypeEffectivenessEntry>[],
+      immunities: <TypeEffectivenessEntry>[],
+    );
+  }
 }

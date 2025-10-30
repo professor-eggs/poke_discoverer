@@ -9,6 +9,7 @@ import 'package:poke_discoverer/src/data/models/pokemon_models.dart';
 import 'package:poke_discoverer/src/data/repositories/data_source_snapshot_repository.dart';
 import 'package:poke_discoverer/src/data/services/pokemon_catalog_service.dart';
 import 'package:poke_discoverer/src/data/services/pokemon_csv_loader.dart';
+import 'package:poke_discoverer/src/data/services/type_matchup_service.dart';
 import 'package:poke_discoverer/src/data/sources/data_source_snapshot_store.dart';
 import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
 import 'package:poke_discoverer/src/presentation/comparison/pokemon_comparison_page.dart';
@@ -95,6 +96,12 @@ void main() {
     expect(find.text('Pokemon #001'), findsOneWidget);
     expect(find.text('Base stats'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsWidgets);
+    await tester.pumpAndSettle();
+    expect(find.text('Type matchups'), findsOneWidget);
+    expect(find.text('Weak to'), findsOneWidget);
+    expect(find.text('Resists'), findsOneWidget);
+    expect(find.text('Fire ×2'), findsOneWidget);
+    expect(find.text('Water ×0.5'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -176,8 +183,8 @@ void main() {
     expect(find.text('Compare (2)'), findsOneWidget);
     expect(find.byType(DataTable), findsOneWidget);
     expect(find.text('Base stat total'), findsWidgets);
-    expect(find.text('Stat comparison'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsWidgets);
+    expect(find.byType(DataTable), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 }
 
@@ -299,6 +306,42 @@ class _StubCsvLoader implements CsvLoader {
   Future<String> readCsvString(String fileName) async => '';
 }
 
+class _FakeTypeMatchupService implements TypeMatchupService {
+  const _FakeTypeMatchupService();
+
+  @override
+  Future<TypeMatchupSummary> defensiveSummary(
+    List<String> defendingTypes,
+  ) async {
+    final normalized = defendingTypes.map((type) => type.toLowerCase()).toSet();
+
+    if (normalized.contains('grass') && normalized.contains('poison')) {
+      return const TypeMatchupSummary(
+        weaknesses: <TypeEffectivenessEntry>[
+          TypeEffectivenessEntry(type: 'fire', multiplier: 2),
+          TypeEffectivenessEntry(type: 'ice', multiplier: 2),
+          TypeEffectivenessEntry(type: 'flying', multiplier: 2),
+          TypeEffectivenessEntry(type: 'psychic', multiplier: 2),
+        ],
+        resistances: <TypeEffectivenessEntry>[
+          TypeEffectivenessEntry(type: 'water', multiplier: 0.5),
+          TypeEffectivenessEntry(type: 'electric', multiplier: 0.5),
+          TypeEffectivenessEntry(type: 'grass', multiplier: 0.25),
+          TypeEffectivenessEntry(type: 'fighting', multiplier: 0.5),
+          TypeEffectivenessEntry(type: 'fairy', multiplier: 0.5),
+        ],
+        immunities: <TypeEffectivenessEntry>[],
+      );
+    }
+
+    return const TypeMatchupSummary(
+      weaknesses: <TypeEffectivenessEntry>[],
+      resistances: <TypeEffectivenessEntry>[],
+      immunities: <TypeEffectivenessEntry>[],
+    );
+  }
+}
+
 void _arrangeCatalogDependencies(List<PokemonEntity> pokemon) {
   final cacheStore = _InMemoryPokemonCacheStore.fromPokemon(pokemon);
   appDependencies = AppDependencies(
@@ -309,5 +352,6 @@ void _arrangeCatalogDependencies(List<PokemonEntity> pokemon) {
       clock: const SystemClock(),
     ),
     csvLoader: const _StubCsvLoader(),
+    typeMatchupService: const _FakeTypeMatchupService(),
   );
 }

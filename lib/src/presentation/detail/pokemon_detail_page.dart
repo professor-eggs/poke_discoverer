@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../bootstrap.dart' show appDependencies;
 import '../../data/models/pokemon_models.dart';
+import '../../data/services/type_matchup_service.dart';
 
 class PokemonDetailPage extends StatefulWidget {
   const PokemonDetailPage({required this.pokemonId, super.key});
@@ -105,6 +106,8 @@ class _PokemonDetailBody extends StatelessWidget {
                   .toList(growable: false),
             ),
           ),
+          const SizedBox(height: 16),
+          _TypeMatchupSection(types: defaultForm.types),
         ],
       ),
     );
@@ -185,6 +188,155 @@ class _StatRow extends StatelessWidget {
       default:
         return raw;
     }
+  }
+}
+
+class _TypeMatchupSection extends StatelessWidget {
+  const _TypeMatchupSection({required this.types});
+
+  final List<String> types;
+
+  @override
+  Widget build(BuildContext context) {
+    if (types.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+
+    return FutureBuilder<TypeMatchupSummary>(
+      future: appDependencies.typeMatchupService.defensiveSummary(types),
+      builder: (context, snapshot) {
+        Widget content;
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          content = const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        } else if (snapshot.hasError) {
+          content = Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Failed to load type matchups.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          );
+        } else {
+          final summary = snapshot.data ??
+              const TypeMatchupSummary(
+                weaknesses: <TypeEffectivenessEntry>[],
+                resistances: <TypeEffectivenessEntry>[],
+                immunities: <TypeEffectivenessEntry>[],
+              );
+          if (summary.isEmpty) {
+            content = Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Type matchups unavailable.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            );
+          } else {
+            content = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (summary.weaknesses.isNotEmpty)
+                  _EffectivenessGroup(
+                    title: 'Weak to',
+                    entries: summary.weaknesses,
+                  ),
+                if (summary.resistances.isNotEmpty)
+                  _EffectivenessGroup(
+                    title: 'Resists',
+                    entries: summary.resistances,
+                  ),
+                if (summary.immunities.isNotEmpty)
+                  _EffectivenessGroup(
+                    title: 'Immune to',
+                    entries: summary.immunities,
+                  ),
+              ],
+            );
+          }
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Type matchups', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 12),
+                content,
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EffectivenessGroup extends StatelessWidget {
+  const _EffectivenessGroup({
+    required this.title,
+    required this.entries,
+  });
+
+  final String title;
+  final List<TypeEffectivenessEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: entries
+                .map(
+                  (entry) => Chip(
+                    label: Text(
+                      '${_capitalize(entry.type)} ×${_formatMultiplier(entry.multiplier)}',
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _capitalize(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
+
+  static String _formatMultiplier(double multiplier) {
+    if (multiplier % 1 == 0) {
+      return multiplier.toInt().toString();
+    }
+    if (multiplier == 0.25) {
+      return '0.25';
+    }
+    if (multiplier == 0.5) {
+      return '0.5';
+    }
+    return multiplier.toStringAsFixed(2);
   }
 }
 
