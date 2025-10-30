@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../bootstrap.dart' show appDependencies, initializeDependencies;
 import '../../data/models/pokemon_models.dart';
 import '../detail/pokemon_detail_page.dart';
+import '../comparison/pokemon_comparison_page.dart';
 
 class PokemonCatalogPage extends StatefulWidget {
   const PokemonCatalogPage({super.key});
@@ -17,9 +18,11 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
   static const _noResultsMessage =
       'No Pokemon match the current filters. Adjust search or clear filters.';
   static const _searchFieldKey = Key('pokemonCatalogSearchField');
+  static const _maxComparisonSelections = 6;
 
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _selectedTypes = <String>{};
+  final Set<int> _selectedPokemonIds = <int>{};
 
   bool _isLoading = true;
   bool _isSeeding = false;
@@ -29,6 +32,11 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
   List<PokemonEntity> _visiblePokemon = const [];
   List<String> _availableTypes = const [];
   String _searchTerm = '';
+
+  bool get _hasSelection => _selectedPokemonIds.isNotEmpty;
+  bool get _canCompare => _selectedPokemonIds.length >= 2;
+  bool get _canAddMoreSelections =>
+      _selectedPokemonIds.length < _maxComparisonSelections;
 
   @override
   void initState() {
@@ -65,6 +73,7 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
         duration: const Duration(milliseconds: 200),
         child: _buildBody(),
       ),
+      bottomNavigationBar: _hasSelection ? _buildSelectionBar() : null,
     );
   }
 
@@ -149,9 +158,16 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final pokemon = _visiblePokemon[index];
+                    final isSelected = _selectedPokemonIds.contains(pokemon.id);
+                    final selectionEnabled =
+                        isSelected || _canAddMoreSelections;
                     return _PokemonListTile(
                       pokemon: pokemon,
-                      onTap: () => _openDetail(pokemon),
+                      isSelected: isSelected,
+                      isSelectionMode: _hasSelection,
+                      selectionEnabled: selectionEnabled,
+                      onTap: () => _handleTileTap(pokemon),
+                      onToggleSelection: () => _toggleSelection(pokemon),
                     );
                   },
                 ),
@@ -180,6 +196,66 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
     );
   }
 
+  Widget _buildSelectionBar() {
+    final theme = Theme.of(context);
+    final selectedEntities = _selectedPokemonIds
+        .map(_findPokemonById)
+        .whereType<PokemonEntity>()
+        .toList(growable: false);
+
+    return SafeArea(
+      minimum: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Material(
+        elevation: 6,
+        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surface,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${_selectedPokemonIds.length} selected',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _clearSelection,
+                    child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _canCompare ? _openComparison : null,
+                    child: Text('Compare (${_selectedPokemonIds.length})'),
+                  ),
+                ],
+              ),
+              if (selectedEntities.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selectedEntities
+                      .map(
+                        (pokemon) => InputChip(
+                          label: Text(_formatPokemonLabel(pokemon)),
+                          onDeleted: () => _toggleSelection(pokemon),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<int> _loadCatalog() async {
     setState(() {
       _isLoading = true;
@@ -200,12 +276,18 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
         searchTerm: _searchTerm,
         selectedTypes: _selectedTypes,
       );
+      final validSelection = _selectedPokemonIds
+          .where((id) => pokemon.any((entity) => entity.id == id))
+          .toList(growable: false);
 
       setState(() {
         _allPokemon = pokemon;
         _visiblePokemon = filtered;
         _availableTypes = types;
         _isLoading = false;
+        _selectedPokemonIds
+          ..clear()
+          ..addAll(validSelection);
       });
 
       return pokemon.length;
@@ -246,7 +328,50 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
     }
   }
 
-  void _openDetail(PokemonEntity pokemon) {
+  void _handleTileTap(PokemonEntity pokemon) {
+    if (_hasSelection) {
+      _toggleSelection(pokemon);
+    } else {
+      _openPokemonDetail(pokemon);
+    }
+  }
+
+  void _toggleSelection(PokemonEntity pokemon) {
+    final id = pokemon.id;
+    if (_selectedPokemonIds.contains(id)) {
+      setState(() {
+        _selectedPokemonIds.remove(id);
+      });
+    } else {
+      if (!_canAddMoreSelections) {
+        _showSnack(
+          'Select up to $_maxComparisonSelections Pokemon for comparison.',
+        );
+        return;
+      }
+      setState(() {
+        _selectedPokemonIds.add(id);
+      });
+    }
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedPokemonIds.clear();
+    });
+  }
+
+  void _openComparison() {
+    if (!_canCompare) return;
+    final ids = _selectedPokemonIds.toList(growable: false);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PokemonComparisonPage(pokemonIds: ids),
+      ),
+    );
+  }
+
+  void _openPokemonDetail(PokemonEntity pokemon) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PokemonDetailPage(pokemonId: pokemon.id),
@@ -314,6 +439,21 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  PokemonEntity? _findPokemonById(int id) {
+    for (final pokemon in _allPokemon) {
+      if (pokemon.id == id) {
+        return pokemon;
+      }
+    }
+    return null;
+  }
+
+  String _formatPokemonLabel(PokemonEntity pokemon) {
+    final number = '#${pokemon.id.toString().padLeft(3, '0')}';
+    final name = _PokemonListTile._capitalize(pokemon.name);
+    return '$number $name';
+  }
+
   static List<String> _deriveTypes(List<PokemonEntity> pokemon) {
     final uniqueTypes = <String>{};
     for (final entity in pokemon) {
@@ -361,13 +501,25 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
 }
 
 class _PokemonListTile extends StatelessWidget {
-  const _PokemonListTile({required this.pokemon, required this.onTap});
+  const _PokemonListTile({
+    required this.pokemon,
+    required this.isSelected,
+    required this.isSelectionMode,
+    required this.selectionEnabled,
+    required this.onTap,
+    required this.onToggleSelection,
+  });
 
   final PokemonEntity pokemon;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final bool selectionEnabled;
   final VoidCallback onTap;
+  final VoidCallback onToggleSelection;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final defaultForm = pokemon.defaultForm;
     final typeLabel = defaultForm.types
         .map(
@@ -380,24 +532,53 @@ class _PokemonListTile extends StatelessWidget {
       (total, stat) => total + stat.baseValue,
     );
 
+    final tileColor = isSelected
+        ? theme.colorScheme.primaryContainer.withOpacity(0.35)
+        : (isSelectionMode
+              ? theme.colorScheme.surfaceVariant.withOpacity(0.25)
+              : null);
+
+    final textColor = isSelected ? theme.colorScheme.onPrimaryContainer : null;
+
     return ListTile(
+      key: ValueKey('pokemon-${pokemon.id}'),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: Text(
         '#${pokemon.id.toString().padLeft(3, '0')}',
-        style: Theme.of(context).textTheme.labelLarge,
+        style: theme.textTheme.labelLarge?.copyWith(color: textColor),
       ),
-      title: Text(_capitalize(pokemon.name)),
-      subtitle: Text(typeLabel),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      title: Text(
+        _capitalize(pokemon.name),
+        style: theme.textTheme.titleMedium?.copyWith(color: textColor),
+      ),
+      subtitle: Text(
+        typeLabel,
+        style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'BST $baseStatTotal',
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+          ),
+          const SizedBox(width: 12),
+          Checkbox(
+            key: ValueKey('pokemon-${pokemon.id}-checkbox'),
+            value: isSelected,
+            onChanged: selectionEnabled ? (_) => onToggleSelection() : null,
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],
       ),
+      tileColor: tileColor,
+      selected: isSelected,
+      selectedTileColor: theme.colorScheme.primaryContainer.withOpacity(0.6),
+      selectedColor: theme.colorScheme.onPrimaryContainer,
+      visualDensity: VisualDensity.compact,
       onTap: onTap,
+      onLongPress: onToggleSelection,
     );
   }
 

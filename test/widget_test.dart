@@ -11,6 +11,7 @@ import 'package:poke_discoverer/src/data/services/pokemon_catalog_service.dart';
 import 'package:poke_discoverer/src/data/services/pokemon_csv_loader.dart';
 import 'package:poke_discoverer/src/data/sources/data_source_snapshot_store.dart';
 import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
+import 'package:poke_discoverer/src/presentation/comparison/pokemon_comparison_page.dart';
 import 'package:poke_discoverer/src/shared/clock.dart';
 
 void main() {
@@ -23,6 +24,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Pokemon Catalog'), findsOneWidget);
+    expect(find.text('Charmander'), findsNothing);
     expect(
       find.text(
         'No cached Pokemon available yet. Seed the snapshot to view entries.',
@@ -32,41 +34,13 @@ void main() {
   });
 
   testWidgets('Filters catalog by search term and type', (tester) async {
-    final pokemon = <PokemonEntity>[
-      _buildPokemon(
-        id: 1,
-        name: 'bulbasaur',
-        types: const ['grass', 'poison'],
-        stats: const [45, 49, 49, 65, 65, 45],
-      ),
-      _buildPokemon(
-        id: 4,
-        name: 'charmander',
-        types: const ['fire'],
-        stats: const [39, 52, 43, 60, 50, 65],
-      ),
-      _buildPokemon(
-        id: 7,
-        name: 'squirtle',
-        types: const ['water'],
-        stats: const [44, 48, 65, 50, 64, 43],
-      ),
-    ];
-
-    final cacheStore = _InMemoryPokemonCacheStore.fromPokemon(pokemon);
-
-    appDependencies = AppDependencies(
-      cacheStore: cacheStore,
-      catalogService: PokemonCatalogService(cacheStore: cacheStore),
-      snapshotRepository: DataSourceSnapshotRepository(
-        store: _NoopSnapshotStore(),
-        clock: const SystemClock(),
-      ),
-      csvLoader: const _StubCsvLoader(),
-    );
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
 
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
+
+    expect(find.text('Charmander'), findsOneWidget);
 
     expect(find.text('Bulbasaur'), findsOneWidget);
     expect(find.text('Charmander'), findsOneWidget);
@@ -124,6 +98,38 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
   });
+
+  testWidgets('Shows selection bar after selecting a Pokemon', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 selected'), findsOneWidget);
+    final compareButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Compare (1)'),
+    );
+    expect(compareButton.onPressed, isNull);
+    expect(find.text('#001 Bulbasaur'), findsOneWidget);
+  });
+
+  testWidgets('PokemonComparisonPage renders stats table', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4])),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Compare (2)'), findsOneWidget);
+    expect(find.byType(DataTable), findsOneWidget);
+    expect(find.text('Base stat total'), findsWidgets);
+  });
 }
 
 PokemonEntity _buildPokemon({
@@ -156,6 +162,27 @@ PokemonEntity _buildPokemon({
     ],
   );
 }
+
+List<PokemonEntity> _samplePokemon() => <PokemonEntity>[
+  _buildPokemon(
+    id: 1,
+    name: 'bulbasaur',
+    types: const ['grass', 'poison'],
+    stats: const [45, 49, 49, 65, 65, 45],
+  ),
+  _buildPokemon(
+    id: 4,
+    name: 'charmander',
+    types: const ['fire'],
+    stats: const [39, 52, 43, 60, 50, 65],
+  ),
+  _buildPokemon(
+    id: 7,
+    name: 'squirtle',
+    types: const ['water'],
+    stats: const [44, 48, 65, 50, 64, 43],
+  ),
+];
 
 class _InMemoryPokemonCacheStore implements PokemonCacheStore {
   _InMemoryPokemonCacheStore.fromPokemon(Iterable<PokemonEntity> pokemon) {
@@ -221,4 +248,17 @@ class _StubCsvLoader implements CsvLoader {
 
   @override
   Future<String> readCsvString(String fileName) async => '';
+}
+
+void _arrangeCatalogDependencies(List<PokemonEntity> pokemon) {
+  final cacheStore = _InMemoryPokemonCacheStore.fromPokemon(pokemon);
+  appDependencies = AppDependencies(
+    cacheStore: cacheStore,
+    catalogService: PokemonCatalogService(cacheStore: cacheStore),
+    snapshotRepository: DataSourceSnapshotRepository(
+      store: _NoopSnapshotStore(),
+      clock: const SystemClock(),
+    ),
+    csvLoader: const _StubCsvLoader(),
+  );
 }
