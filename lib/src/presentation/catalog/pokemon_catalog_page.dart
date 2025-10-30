@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../bootstrap.dart' show appDependencies, initializeDependencies;
 import '../../data/models/pokemon_models.dart';
+import '../detail/pokemon_detail_page.dart';
 
 class PokemonCatalogPage extends StatefulWidget {
   const PokemonCatalogPage({super.key});
@@ -148,7 +149,10 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final pokemon = _visiblePokemon[index];
-                    return _PokemonListTile(pokemon: pokemon);
+                    return _PokemonListTile(
+                      pokemon: pokemon,
+                      onTap: () => _openDetail(pokemon),
+                    );
                   },
                 ),
         ),
@@ -242,6 +246,14 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
     }
   }
 
+  void _openDetail(PokemonEntity pokemon) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PokemonDetailPage(pokemonId: pokemon.id),
+      ),
+    );
+  }
+
   void _handleSearchChanged(String value) {
     _searchTerm = value.trim();
     setState(() {
@@ -332,10 +344,10 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
           if (selectedTypes.isEmpty) {
             return true;
           }
-          final formTypes = pokemon.defaultForm.types.map(
-            (type) => type.toLowerCase(),
-          );
-          return formTypes.any(selectedTypes.contains);
+          final formTypes = pokemon.defaultForm.types
+              .map((type) => type.toLowerCase())
+              .toSet();
+          return selectedTypes.every(formTypes.contains);
         })
         .toList(growable: false);
   }
@@ -349,9 +361,10 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
 }
 
 class _PokemonListTile extends StatelessWidget {
-  const _PokemonListTile({required this.pokemon});
+  const _PokemonListTile({required this.pokemon, required this.onTap});
 
   final PokemonEntity pokemon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -384,6 +397,7 @@ class _PokemonListTile extends StatelessWidget {
           ),
         ],
       ),
+      onTap: onTap,
     );
   }
 

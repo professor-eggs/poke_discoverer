@@ -91,6 +91,38 @@ void main() {
     expect(find.text('Charmander'), findsOneWidget);
     expect(find.text('Bulbasaur'), findsNothing);
     expect(find.text('Squirtle'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Water'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'No Pokemon match the current filters. Adjust search or clear filters.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Clear filters'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Grass'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, 'Poison'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bulbasaur'), findsOneWidget);
+    expect(find.text('Charmander'), findsNothing);
+    expect(find.text('Squirtle'), findsNothing);
+
+    await tester.tap(find.text('Bulbasaur').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pokemon #001'), findsOneWidget);
+    expect(find.text('Base stats'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsWidgets);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
   });
 }
 
