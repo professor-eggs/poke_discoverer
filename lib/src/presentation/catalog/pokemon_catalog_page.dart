@@ -18,6 +18,17 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
   static const _noResultsMessage =
       'No Pokemon match the current filters. Adjust search or clear filters.';
   static const _searchFieldKey = Key('pokemonCatalogSearchField');
+  static const _sortLabels = <CatalogSort, String>{
+    CatalogSort.dex: 'Dex number',
+    CatalogSort.name: 'Name',
+    CatalogSort.total: 'Base stat total',
+    CatalogSort.hp: 'HP',
+    CatalogSort.atk: 'Attack',
+    CatalogSort.def: 'Defense',
+    CatalogSort.spa: 'Sp. Attack',
+    CatalogSort.spd: 'Sp. Defense',
+    CatalogSort.spe: 'Speed',
+  };
   static const _maxComparisonSelections = 6;
 
   final TextEditingController _searchController = TextEditingController();
@@ -32,6 +43,8 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
   List<PokemonEntity> _visiblePokemon = const [];
   List<String> _availableTypes = const [];
   String _searchTerm = '';
+  CatalogSort _sort = CatalogSort.dex;
+  bool _sortAscending = true;
 
   bool get _hasSelection => _selectedPokemonIds.isNotEmpty;
   bool get _canCompare => _selectedPokemonIds.length >= 2;
@@ -145,6 +158,50 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
               ),
             ),
           ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<CatalogSort>(
+                  value: _sort,
+                  decoration: const InputDecoration(
+                    labelText: 'Sort by',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: CatalogSort.values
+                      .map(
+                        (value) => DropdownMenuItem<CatalogSort>(
+                          value: value,
+                          child: Text(_sortLabels[value]!),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _sort = value;
+                      _sortVisiblePokemon();
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: _sortAscending ? 'Ascending' : 'Descending',
+                icon: Icon(
+                  _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _sortAscending = !_sortAscending;
+                    _sortVisiblePokemon();
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 8),
         Expanded(
           child: _visiblePokemon.isEmpty
@@ -280,9 +337,10 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
           .where((id) => pokemon.any((entity) => entity.id == id))
           .toList(growable: false);
 
+      final sorted = _sortPokemon(filtered);
       setState(() {
         _allPokemon = pokemon;
-        _visiblePokemon = filtered;
+        _visiblePokemon = sorted;
         _availableTypes = types;
         _isLoading = false;
         _selectedPokemonIds
@@ -381,12 +439,13 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
 
   void _handleSearchChanged(String value) {
     _searchTerm = value.trim();
+    final filtered = _applyFilters(
+      _allPokemon,
+      searchTerm: _searchTerm,
+      selectedTypes: _selectedTypes,
+    );
     setState(() {
-      _visiblePokemon = _applyFilters(
-        _allPokemon,
-        searchTerm: _searchTerm,
-        selectedTypes: _selectedTypes,
-      );
+      _visiblePokemon = _sortPokemon(filtered);
     });
   }
 
@@ -397,11 +456,12 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
       } else {
         _selectedTypes.add(type);
       }
-      _visiblePokemon = _applyFilters(
+      final filtered = _applyFilters(
         _allPokemon,
         searchTerm: _searchTerm,
         selectedTypes: _selectedTypes,
       );
+      _visiblePokemon = _sortPokemon(filtered);
     });
   }
 
@@ -409,12 +469,13 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
     if (_searchTerm.isEmpty) return;
     _searchTerm = '';
     _searchController.clear();
+    final filtered = _applyFilters(
+      _allPokemon,
+      searchTerm: _searchTerm,
+      selectedTypes: _selectedTypes,
+    );
     setState(() {
-      _visiblePokemon = _applyFilters(
-        _allPokemon,
-        searchTerm: _searchTerm,
-        selectedTypes: _selectedTypes,
-      );
+      _visiblePokemon = _sortPokemon(filtered);
     });
   }
 
@@ -423,12 +484,13 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
     _searchTerm = '';
     _selectedTypes.clear();
     _searchController.clear();
+    final filtered = _applyFilters(
+      _allPokemon,
+      searchTerm: _searchTerm,
+      selectedTypes: _selectedTypes,
+    );
     setState(() {
-      _visiblePokemon = _applyFilters(
-        _allPokemon,
-        searchTerm: _searchTerm,
-        selectedTypes: _selectedTypes,
-      );
+      _visiblePokemon = _sortPokemon(filtered);
     });
   }
 
@@ -463,6 +525,65 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
     }
     final sorted = uniqueTypes.toList(growable: false)..sort();
     return sorted;
+  }
+
+  List<PokemonEntity> _sortPokemon(List<PokemonEntity> source) {
+    final list = List<PokemonEntity>.from(source);
+    list.sort((a, b) {
+      int compare;
+      switch (_sort) {
+        case CatalogSort.dex:
+          compare = a.id.compareTo(b.id);
+          break;
+        case CatalogSort.name:
+          compare = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          break;
+        case CatalogSort.total:
+          compare = _catalogBaseStatTotal(
+            a,
+          ).compareTo(_catalogBaseStatTotal(b));
+          break;
+        case CatalogSort.hp:
+        case CatalogSort.atk:
+        case CatalogSort.def:
+        case CatalogSort.spa:
+        case CatalogSort.spd:
+        case CatalogSort.spe:
+          final statId = _statIdForSort(_sort);
+          final aStat = a.defaultForm.baseStat(statId) ?? 0;
+          final bStat = b.defaultForm.baseStat(statId) ?? 0;
+          compare = aStat.compareTo(bStat);
+          break;
+      }
+      if (compare == 0) {
+        compare = a.id.compareTo(b.id);
+      }
+      return _sortAscending ? compare : -compare;
+    });
+    return list;
+  }
+
+  void _sortVisiblePokemon() {
+    _visiblePokemon = _sortPokemon(_visiblePokemon);
+  }
+
+  static String _statIdForSort(CatalogSort sort) {
+    switch (sort) {
+      case CatalogSort.hp:
+        return 'hp';
+      case CatalogSort.atk:
+        return 'atk';
+      case CatalogSort.def:
+        return 'def';
+      case CatalogSort.spa:
+        return 'spa';
+      case CatalogSort.spd:
+        return 'spd';
+      case CatalogSort.spe:
+        return 'spe';
+      default:
+        return '';
+    }
   }
 
   static List<PokemonEntity> _applyFilters(
@@ -588,4 +709,13 @@ class _PokemonListTile extends StatelessWidget {
     }
     return name[0].toUpperCase() + name.substring(1);
   }
+}
+
+enum CatalogSort { dex, name, total, hp, atk, def, spa, spd, spe }
+
+int _catalogBaseStatTotal(PokemonEntity pokemon) {
+  return pokemon.defaultForm.stats.fold<int>(
+    0,
+    (total, stat) => total + stat.baseValue,
+  );
 }
