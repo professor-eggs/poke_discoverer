@@ -4,6 +4,7 @@ import '../../bootstrap.dart' show appDependencies, initializeDependencies;
 import '../../data/models/pokemon_models.dart';
 import '../detail/pokemon_detail_page.dart';
 import '../comparison/pokemon_comparison_page.dart';
+import '../widgets/sprite_avatar.dart';
 
 class PokemonCatalogPage extends StatefulWidget {
   const PokemonCatalogPage({super.key});
@@ -664,9 +665,9 @@ class _PokemonListTile extends StatelessWidget {
     return ListTile(
       key: ValueKey('pokemon-${pokemon.id}'),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: Text(
-        '#${pokemon.id.toString().padLeft(3, '0')}',
-        style: theme.textTheme.labelLarge?.copyWith(color: textColor),
+      leading: _CatalogLeadingSprite(
+        pokemon: pokemon,
+        textStyle: theme.textTheme.labelLarge?.copyWith(color: textColor),
       ),
       title: Text(
         _capitalize(pokemon.name),
@@ -708,6 +709,39 @@ class _PokemonListTile extends StatelessWidget {
       return name;
     }
     return name[0].toUpperCase() + name.substring(1);
+  }
+}
+
+class _CatalogLeadingSprite extends StatelessWidget {
+  const _CatalogLeadingSprite({
+    required this.pokemon,
+    required this.textStyle,
+  });
+
+  final PokemonEntity pokemon;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 80,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              '#${pokemon.id.toString().padLeft(3, '0')}',
+              style: textStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 6),
+          SpriteAvatar(pokemon: pokemon, size: 32),
+        ],
+      ),
+    );
   }
 }
 

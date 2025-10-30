@@ -12,6 +12,7 @@ import 'package:poke_discoverer/src/data/services/pokemon_csv_loader.dart';
 import 'package:poke_discoverer/src/data/sources/data_source_snapshot_store.dart';
 import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
 import 'package:poke_discoverer/src/presentation/comparison/pokemon_comparison_page.dart';
+import 'package:poke_discoverer/src/presentation/widgets/sprite_avatar.dart';
 import 'package:poke_discoverer/src/shared/clock.dart';
 
 void main() {
@@ -117,6 +118,52 @@ void main() {
     expect(find.text('#001 Bulbasaur'), findsOneWidget);
   });
 
+  testWidgets('Catalog renders sprite avatars for each Pokemon', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SpriteAvatar), findsNWidgets(pokemon.length));
+  });
+
+  testWidgets('Sort controls reorder catalog entries by stat', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Dex number'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Speed').last);
+    await tester.pumpAndSettle();
+
+    final bulbasaurTop =
+        tester.getTopLeft(find.byKey(const ValueKey('pokemon-1'))).dy;
+    final charmanderTop =
+        tester.getTopLeft(find.byKey(const ValueKey('pokemon-4'))).dy;
+    final squirtleTop =
+        tester.getTopLeft(find.byKey(const ValueKey('pokemon-7'))).dy;
+
+    expect(squirtleTop, lessThan(bulbasaurTop));
+    expect(bulbasaurTop, lessThan(charmanderTop));
+
+    await tester.tap(find.byTooltip('Ascending'));
+    await tester.pumpAndSettle();
+
+    final bulbasaurDesc =
+        tester.getTopLeft(find.byKey(const ValueKey('pokemon-1'))).dy;
+    final charmanderDesc =
+        tester.getTopLeft(find.byKey(const ValueKey('pokemon-4'))).dy;
+    final squirtleDesc =
+        tester.getTopLeft(find.byKey(const ValueKey('pokemon-7'))).dy;
+
+    expect(charmanderDesc, lessThan(bulbasaurDesc));
+    expect(bulbasaurDesc, lessThan(squirtleDesc));
+  });
+
   testWidgets('PokemonComparisonPage renders stats table', (tester) async {
     final pokemon = _samplePokemon();
     _arrangeCatalogDependencies(pokemon);
@@ -129,6 +176,8 @@ void main() {
     expect(find.text('Compare (2)'), findsOneWidget);
     expect(find.byType(DataTable), findsOneWidget);
     expect(find.text('Base stat total'), findsWidgets);
+    expect(find.text('Stat comparison'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsWidgets);
   });
 }
 

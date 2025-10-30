@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../bootstrap.dart' show appDependencies;
 import '../../data/models/pokemon_models.dart';
 import '../detail/pokemon_detail_page.dart';
+import '../widgets/sprite_avatar.dart';
 
 const List<String> _kStatOrder = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
 const Map<String, String> _kStatLabels = <String, String>{
@@ -141,7 +142,7 @@ class _ComparisonView extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 240,
+          height: 280,
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             scrollDirection: Axis.horizontal,
@@ -163,9 +164,20 @@ class _ComparisonView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Card(
             clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _StatsTable(pokemon: sortedPokemon),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _StatsComparisonBars(pokemon: sortedPokemon),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _StatsTable(pokemon: sortedPokemon),
+                ),
+              ],
             ),
           ),
         ),
@@ -327,33 +339,69 @@ class _PokemonSummaryCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '#${pokemon.id.toString().padLeft(3, '0')}',
-                  style: theme.textTheme.labelSmall,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _capitalize(pokemon.name),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: accentColor,
-                    fontWeight: highlight ? FontWeight.w600 : null,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  defaultForm.types
-                      .map((type) => _capitalize(type))
-                      .join(' / '),
-                  style: theme.textTheme.bodyMedium,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SpriteAvatar(
+                      pokemon: pokemon,
+                      size: 56,
+                      backgroundColor:
+                          theme.colorScheme.surfaceVariant.withOpacity(0.8),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '#${pokemon.id.toString().padLeft(3, '0')}',
+                            style: theme.textTheme.labelSmall,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _capitalize(pokemon.name),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: accentColor,
+                              fontWeight: highlight ? FontWeight.w600 : null,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            defaultForm.types
+                                .map((type) => _capitalize(type))
+                                .join(' / '),
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
-                Text('Base stat total', style: theme.textTheme.bodySmall),
                 Text(
-                  baseStatTotal.toString(),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: accentColor,
-                    fontWeight: highlight ? FontWeight.w600 : null,
-                  ),
+                  'Base stat total',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      baseStatTotal.toString(),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: accentColor,
+                        fontWeight: highlight ? FontWeight.w600 : null,
+                      ),
+                    ),
+                    if (highlight) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.emoji_events,
+                        color: theme.colorScheme.primary,
+                        size: 20,
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -361,6 +409,205 @@ class _PokemonSummaryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _StatsComparisonBars extends StatelessWidget {
+  const _StatsComparisonBars({required this.pokemon});
+
+  final List<PokemonEntity> pokemon;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pokemon.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final theme = Theme.of(context);
+    final statKeys = <String>[..._kStatOrder, 'total'];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showBars = constraints.maxWidth >= 420;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Stat comparison', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            for (var i = 0; i < statKeys.length; i++) ...[
+              _StatComparisonRow(
+                statId: statKeys[i],
+                pokemon: pokemon,
+                showBars: showBars,
+              ),
+              if (i != statKeys.length - 1) const SizedBox(height: 12),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StatComparisonRow extends StatelessWidget {
+  const _StatComparisonRow({
+    required this.statId,
+    required this.pokemon,
+    required this.showBars,
+  });
+
+  final String statId;
+  final List<PokemonEntity> pokemon;
+  final bool showBars;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = statId == 'total'
+        ? 'Base stat total'
+        : _kStatLabels[statId] ?? statId.toUpperCase();
+    final values = <int?>[
+      for (final entity in pokemon)
+        statId == 'total'
+            ? _baseStatTotal(entity)
+            : entity.defaultForm.baseStat(statId),
+    ];
+    final numericValues = values.whereType<int>().toList(growable: false);
+    final maxValue =
+        numericValues.isEmpty ? 0 : numericValues.reduce(math.max);
+
+    if (!showBars) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < pokemon.length; i++)
+                Text(
+                  '${_capitalize(pokemon[i].name)}: ${values[i]?.toString() ?? '-'}',
+                  style: _textStyleForValue(
+                    theme,
+                    values[i],
+                    maxValue,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < pokemon.length; i++)
+              Expanded(
+                child: Padding(
+                  padding:
+                      EdgeInsets.only(right: i == pokemon.length - 1 ? 0 : 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _capitalize(pokemon[i].name),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(
+                                value: _progressForValue(values[i], maxValue),
+                                minHeight: 6,
+                                backgroundColor: theme.colorScheme.surfaceVariant
+                                    .withOpacity(0.5),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  _barColorForValue(
+                                    theme,
+                                    values[i],
+                                    maxValue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            values[i]?.toString() ?? '-',
+                            style: _textStyleForValue(
+                              theme,
+                              values[i],
+                              maxValue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  double _progressForValue(int? value, int maxValue) {
+    if (value == null || maxValue <= 0) {
+      return 0;
+    }
+    final progress = value / maxValue;
+    if (progress.isNaN || progress.isInfinite) {
+      return 0;
+    }
+    return progress.clamp(0.0, 1.0);
+  }
+
+  TextStyle? _textStyleForValue(
+    ThemeData theme,
+    int? value,
+    int maxValue,
+  ) {
+    final baseStyle = theme.textTheme.bodyMedium;
+    if (value != null && maxValue > 0 && value == maxValue) {
+      return baseStyle?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: theme.colorScheme.primary,
+      );
+    }
+    return baseStyle;
+  }
+
+  Color _barColorForValue(
+    ThemeData theme,
+    int? value,
+    int maxValue,
+  ) {
+    if (value != null && maxValue > 0 && value == maxValue) {
+      return theme.colorScheme.primary;
+    }
+    return theme.colorScheme.primary.withOpacity(0.45);
   }
 }
 
