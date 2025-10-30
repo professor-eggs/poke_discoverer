@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../bootstrap.dart' show appDependencies;
 import '../../data/models/pokemon_models.dart';
+import '../../data/services/type_matchup_service.dart';
 import '../detail/pokemon_detail_page.dart';
 import '../widgets/sprite_avatar.dart';
 
@@ -169,6 +170,11 @@ class _ComparisonView extends StatelessWidget {
               child: _StatsTable(pokemon: sortedPokemon),
             ),
           ),
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _TeamCoverageCard(pokemon: sortedPokemon),
         ),
       ],
     );
@@ -415,6 +421,173 @@ class _ErrorView extends StatelessWidget {
         child: Text(message, textAlign: TextAlign.center),
       ),
     );
+  }
+}
+
+class _TeamCoverageCard extends StatelessWidget {
+  const _TeamCoverageCard({required this.pokemon});
+
+  final List<PokemonEntity> pokemon;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pokemon.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final future = appDependencies.typeMatchupService.teamCoverage(
+      pokemon
+          .map((entity) => entity.defaultForm.types)
+          .toList(growable: false),
+    );
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: FutureBuilder<TypeCoverageSummary>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            final theme = Theme.of(context);
+            if (snapshot.hasError) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Team coverage', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Failed to compute coverage: ${snapshot.error}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              );
+            }
+
+            final summary = snapshot.data ??
+                const TypeCoverageSummary(
+                  sharedWeaknesses: <TypeEffectivenessEntry>[],
+                  uncoveredWeaknesses: <TypeEffectivenessEntry>[],
+                  resistances: <TypeEffectivenessEntry>[],
+                  immunities: <TypeEffectivenessEntry>[],
+                );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Team coverage', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 12),
+                if (summary.isEmpty)
+                  Text(
+                    'Coverage summary unavailable.',
+                    style: theme.textTheme.bodyMedium,
+                  )
+                else ...[
+                  if (summary.sharedWeaknesses.isNotEmpty)
+                    _CoverageGroup(
+                      title: 'Shared weaknesses',
+                      entries: summary.sharedWeaknesses,
+                      chipColor: theme.colorScheme.errorContainer,
+                      textColor: theme.colorScheme.onErrorContainer,
+                    ),
+                  if (summary.uncoveredWeaknesses.isNotEmpty)
+                    _CoverageGroup(
+                      title: 'Needs coverage',
+                      entries: summary.uncoveredWeaknesses,
+                      chipColor: theme.colorScheme.secondaryContainer,
+                      textColor: theme.colorScheme.onSecondaryContainer,
+                    ),
+                  if (summary.resistances.isNotEmpty)
+                    _CoverageGroup(
+                      title: 'Covered by team',
+                      entries: summary.resistances,
+                      chipColor: theme.colorScheme.primaryContainer,
+                      textColor: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  if (summary.immunities.isNotEmpty)
+                    _CoverageGroup(
+                      title: 'Team immunities',
+                      entries: summary.immunities,
+                      chipColor: theme.colorScheme.tertiaryContainer,
+                      textColor: theme.colorScheme.onTertiaryContainer,
+                    ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverageGroup extends StatelessWidget {
+  const _CoverageGroup({
+    required this.title,
+    required this.entries,
+    required this.chipColor,
+    required this.textColor,
+  });
+
+  final String title;
+  final List<TypeEffectivenessEntry> entries;
+  final Color chipColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final entry in entries)
+                Chip(
+                  backgroundColor: chipColor,
+                  labelStyle: theme.textTheme.labelLarge?.copyWith(
+                    color: textColor,
+                  ),
+                  label: Text(
+                    '${_capitalize(entry.type)} ${_formatMultiplier(entry.multiplier)}',
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _capitalize(String value) {
+    if (value.isEmpty) {
+      return value;
+    }
+    return value[0].toUpperCase() + value.substring(1);
+  }
+
+  static String _formatMultiplier(double multiplier) {
+    if (multiplier == 0) {
+      return 'x0';
+    }
+    if (multiplier % 1 == 0) {
+      return 'x${multiplier.toInt()}';
+    }
+    return 'x${multiplier.toStringAsFixed(multiplier == 0.25 ? 2 : 1)}';
   }
 }
 

@@ -100,8 +100,8 @@ void main() {
     expect(find.text('Type matchups'), findsOneWidget);
     expect(find.text('Weak to'), findsOneWidget);
     expect(find.text('Resists'), findsOneWidget);
-    expect(find.text('Fire ×2'), findsOneWidget);
-    expect(find.text('Water ×0.5'), findsOneWidget);
+    expect(find.text('Fire x2'), findsOneWidget);
+    expect(find.text('Water x0.5'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -175,17 +175,25 @@ void main() {
     final pokemon = _samplePokemon();
     _arrangeCatalogDependencies(pokemon);
 
-    await tester.pumpWidget(
-      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4])),
-    );
-    await tester.pumpAndSettle();
+  await tester.pumpWidget(
+    MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4])),
+  );
+  await tester.pumpAndSettle();
 
-    expect(find.text('Compare (2)'), findsOneWidget);
-    expect(find.byType(DataTable), findsOneWidget);
-    expect(find.text('Base stat total'), findsWidgets);
-    expect(find.byType(DataTable), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsNothing);
-  });
+  expect(find.text('Compare (2)'), findsOneWidget);
+  expect(find.byType(DataTable), findsOneWidget);
+  expect(find.text('Base stat total'), findsWidgets);
+  expect(find.byType(DataTable), findsOneWidget);
+  expect(find.byType(LinearProgressIndicator), findsNothing);
+
+  final scrollable = find.byType(Scrollable).first;
+  await tester.fling(scrollable, const Offset(0, -600), 1000);
+  await tester.pumpAndSettle();
+
+  expect(find.text('Team coverage'), findsOneWidget);
+  expect(find.text('Needs coverage'), findsOneWidget);
+  expect(find.text('Covered by team'), findsOneWidget);
+});
 }
 
 PokemonEntity _buildPokemon({
@@ -338,6 +346,87 @@ class _FakeTypeMatchupService implements TypeMatchupService {
       weaknesses: <TypeEffectivenessEntry>[],
       resistances: <TypeEffectivenessEntry>[],
       immunities: <TypeEffectivenessEntry>[],
+    );
+  }
+
+  @override
+  Future<TypeCoverageSummary> teamCoverage(
+    List<List<String>> defendingTypesList,
+  ) async {
+    final summaries = await Future.wait(
+      defendingTypesList.map(defensiveSummary),
+    );
+    final teamSize = defendingTypesList.length;
+    final weaknessCount = <String, int>{};
+    final weaknessMax = <String, double>{};
+    final resistanceCount = <String, int>{};
+    final resistanceMin = <String, double>{};
+    final immunityTypes = <String>{};
+
+    for (final summary in summaries) {
+      for (final entry in summary.weaknesses) {
+        weaknessCount.update(entry.type, (value) => value + 1, ifAbsent: () => 1);
+        final current = weaknessMax[entry.type];
+        if (current == null || entry.multiplier > current) {
+          weaknessMax[entry.type] = entry.multiplier;
+        }
+      }
+      for (final entry in summary.resistances) {
+        resistanceCount.update(entry.type, (value) => value + 1, ifAbsent: () => 1);
+        final current = resistanceMin[entry.type];
+        if (current == null || entry.multiplier < current) {
+          resistanceMin[entry.type] = entry.multiplier;
+        }
+      }
+      for (final entry in summary.immunities) {
+        immunityTypes.add(entry.type);
+      }
+    }
+
+    final sharedWeaknesses = <TypeEffectivenessEntry>[];
+    final uncoveredWeaknesses = <TypeEffectivenessEntry>[];
+
+    weaknessCount.forEach((type, count) {
+      final multiplier = weaknessMax[type] ?? 2;
+      if (count == teamSize) {
+        sharedWeaknesses.add(
+          TypeEffectivenessEntry(type: type, multiplier: multiplier),
+        );
+      }
+      final hasCoverage =
+          immunityTypes.contains(type) || resistanceCount.containsKey(type);
+      if (!hasCoverage) {
+        uncoveredWeaknesses.add(
+          TypeEffectivenessEntry(type: type, multiplier: multiplier),
+        );
+      }
+    });
+
+    final resistances = resistanceMin.entries
+        .map(
+          (entry) => TypeEffectivenessEntry(
+            type: entry.key,
+            multiplier: entry.value,
+          ),
+        )
+        .toList(growable: false)
+      ..sort((a, b) => a.multiplier.compareTo(b.multiplier));
+
+    final immunities = immunityTypes
+        .map(
+          (type) => TypeEffectivenessEntry(type: type, multiplier: 0),
+        )
+        .toList(growable: false)
+      ..sort((a, b) => a.type.compareTo(b.type));
+
+    sharedWeaknesses.sort((a, b) => b.multiplier.compareTo(a.multiplier));
+    uncoveredWeaknesses.sort((a, b) => b.multiplier.compareTo(a.multiplier));
+
+    return TypeCoverageSummary(
+      sharedWeaknesses: sharedWeaknesses,
+      uncoveredWeaknesses: uncoveredWeaknesses,
+      resistances: resistances,
+      immunities: immunities,
     );
   }
 }

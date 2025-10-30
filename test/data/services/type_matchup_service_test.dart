@@ -35,6 +35,26 @@ void main() {
       final summary = await service.defensiveSummary(const ['shadow']);
       expect(summary.isEmpty, isTrue);
     });
+
+    test('aggregates team coverage across multiple Pok�mon', () async {
+      final coverage = await service.teamCoverage(const [
+        ['grass', 'poison'],
+        ['fire'],
+        ['water'],
+      ]);
+
+      expect(
+        coverage.uncoveredWeaknesses
+            .any((entry) => entry.type == 'fire' && entry.multiplier >= 2),
+        isTrue,
+      );
+      expect(
+        coverage.resistances
+            .any((entry) => entry.type == 'water' && entry.multiplier <= 0.5),
+        isTrue,
+      );
+      expect(coverage.immunities, isEmpty);
+    });
   });
 }
 

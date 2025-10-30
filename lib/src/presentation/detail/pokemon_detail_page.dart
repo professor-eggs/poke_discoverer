@@ -310,7 +310,7 @@ class _EffectivenessGroup extends StatelessWidget {
                 .map(
                   (entry) => Chip(
                     label: Text(
-                      '${_capitalize(entry.type)} ×${_formatMultiplier(entry.multiplier)}',
+                      '${_capitalize(entry.type)} x${_formatMultiplier(entry.multiplier)}',
                     ),
                   ),
                 )

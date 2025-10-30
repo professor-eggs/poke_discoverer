@@ -210,4 +210,16 @@ class _NoopTypeMatchupService implements TypeMatchupService {
       immunities: <TypeEffectivenessEntry>[],
     );
   }
+
+  @override
+  Future<TypeCoverageSummary> teamCoverage(
+    List<List<String>> defendingTypesList,
+  ) async {
+    return const TypeCoverageSummary(
+      sharedWeaknesses: <TypeEffectivenessEntry>[],
+      uncoveredWeaknesses: <TypeEffectivenessEntry>[],
+      resistances: <TypeEffectivenessEntry>[],
+      immunities: <TypeEffectivenessEntry>[],
+    );
+  }
 }
