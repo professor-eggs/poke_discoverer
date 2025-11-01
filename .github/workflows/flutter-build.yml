@@ -1,10 +1,11 @@
-name: Flutter Build
+
+name: Flutter Release Build
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - 'v*.*.*'
+
 
 jobs:
   build:
@@ -37,9 +38,34 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: flutter build apk --release
 
-      # Optionally, upload the APK as an artifact
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Extract version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/poke-discoverer-$VERSION.apk
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/app/outputs/flutter-apk/poke-discoverer-${{ steps.version.outputs.version }}.apk
+          asset_name: poke-discoverer-${{ steps.version.outputs.version }}.apk
+          asset_content_type: application/vnd.android.package-archive
