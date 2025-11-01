@@ -1,22 +1,19 @@
-import 'dart:io';
 
 import 'package:csv/csv.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
 
 import 'pokemon_csv_loader.dart';
 
-class _FileCsvLoader implements CsvLoader {
-  _FileCsvLoader(this.root);
+class _AssetCsvLoader implements CsvLoader {
+  _AssetCsvLoader(this.assetRoot);
 
-  final String root;
+  final String assetRoot;
 
   @override
   Future<String> readCsvString(String fileName) async {
-    final file = File(p.join(root, fileName));
-    if (!await file.exists()) {
-      throw FileSystemException('Missing CSV file', file.path);
-    }
-    return file.readAsString();
+    final assetPath = p.join(assetRoot, fileName).replaceAll(r'\', '/');
+    return rootBundle.loadString(assetPath);
   }
 
   @override
@@ -43,8 +40,8 @@ CsvLoader createPlatformCsvLoader({
   String? filesystemRoot,
   String? assetRoot,
 }) {
-  if (filesystemRoot == null) {
-    throw ArgumentError.notNull('filesystemRoot');
+  if (assetRoot == null) {
+    throw ArgumentError.notNull('assetRoot');
   }
-  return _FileCsvLoader(filesystemRoot);
+  return _AssetCsvLoader(assetRoot);
 }

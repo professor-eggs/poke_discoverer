@@ -135,11 +135,8 @@ Future<AppDependencies> initializeDependencies({
 }
 
 Future<CsvLoader> _createLoader() async {
-  if (kIsWeb) {
-    return createCsvLoader(assetRoot: 'assets/pokeapi/csv');
-  }
-  final root = p.join('data', 'pokeapi-master', 'data', 'v2', 'csv');
-  return createCsvLoader(filesystemRoot: root);
+  // Always load CSVs from assets for all platforms
+  return createCsvLoader(assetRoot: 'assets/pokeapi/csv');
 }
 
 Future<String> _computeChecksum(

@@ -1,4 +1,4 @@
 # fastlane Appfile for poke_discoverer
 # See https://docs.fastlane.tools/advanced/#appfile for more options
 
-# package_name("com.example.poke_discoverer")
+package_name("io.github.professor_eggs.pokediscoverer")

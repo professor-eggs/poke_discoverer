@@ -1,3 +1,33 @@
+// Task to rename APK after build (works for AGP 7+ and Kotlin DSL)
+tasks.register<Copy>("renameDebugApk") {
+    val buildType = "debug"
+    val versionName = android.defaultConfig.versionName
+    val appName = "poke-discoverer"
+    val apkDir = layout.buildDirectory.dir("outputs/apk/$buildType")
+    val apkName = "app-$buildType.apk"
+    val newName = "$appName-$versionName-$buildType.apk"
+
+    from(apkDir)
+    include(apkName)
+    into(apkDir)
+    rename(apkName, newName)
+    dependsOn("assemble${buildType.replaceFirstChar { it.uppercase() }}")
+}
+
+tasks.register<Copy>("renameReleaseApk") {
+    val buildType = "release"
+    val versionName = android.defaultConfig.versionName
+    val appName = "poke-discoverer"
+    val apkDir = layout.buildDirectory.dir("outputs/apk/$buildType")
+    val apkName = "app-$buildType.apk"
+    val newName = "$appName-$versionName-$buildType.apk"
+
+    from(apkDir)
+    include(apkName)
+    into(apkDir)
+    rename(apkName, newName)
+    dependsOn("assemble${buildType.replaceFirstChar { it.uppercase() }}")
+}
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -6,7 +36,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.poke_discoverer"
+    namespace = "io.github.professor_eggs.pokediscoverer"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -35,7 +65,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.poke_discoverer"
+        applicationId = "io.github.professor_eggs.pokediscoverer"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
