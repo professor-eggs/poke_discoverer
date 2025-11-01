@@ -45,8 +45,10 @@ app.*.map.json
 /android/app/release
 
 # Android keystore environment (do not commit secrets)
-android/app/keystore.env
-android/app/build_with_env.ps1
+/android/app/keystore.env
+/android/app/build_with_env.ps1
+/android/app/release.keystore.b64
+
 
 /data
 /assets/**/*.csv
