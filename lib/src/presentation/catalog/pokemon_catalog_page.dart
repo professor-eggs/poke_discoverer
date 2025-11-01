@@ -225,6 +225,7 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
                       isSelectionMode: _hasSelection,
                       selectionEnabled: selectionEnabled,
                       onTap: () => _handleTileTap(pokemon),
+                      onPreview: () => _openPokemonDetail(pokemon),
                       onToggleSelection: () => _toggleSelection(pokemon),
                     );
                   },
@@ -629,6 +630,7 @@ class _PokemonListTile extends StatelessWidget {
     required this.isSelectionMode,
     required this.selectionEnabled,
     required this.onTap,
+    required this.onPreview,
     required this.onToggleSelection,
   });
 
@@ -637,6 +639,7 @@ class _PokemonListTile extends StatelessWidget {
   final bool isSelectionMode;
   final bool selectionEnabled;
   final VoidCallback onTap;
+  final VoidCallback onPreview;
   final VoidCallback onToggleSelection;
 
   @override
@@ -685,6 +688,14 @@ class _PokemonListTile extends StatelessWidget {
             style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
           ),
           const SizedBox(width: 12),
+          if (isSelectionMode) ...[
+            IconButton(
+              tooltip: 'View details',
+              icon: const Icon(Icons.info_outline),
+              onPressed: onPreview,
+            ),
+            const SizedBox(width: 4),
+          ],
           Checkbox(
             key: ValueKey('pokemon-${pokemon.id}-checkbox'),
             value: isSelected,

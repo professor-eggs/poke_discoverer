@@ -22,6 +22,10 @@ enum ComparisonSort { dex, name, total }
 
 enum StatDisplayMode { base, computed }
 
+enum LevelControlMode { dragInput, buttonCluster }
+
+const LevelControlMode kLevelControlMode = LevelControlMode.buttonCluster;
+
 class PokemonComparisonPage extends StatefulWidget {
   const PokemonComparisonPage({super.key, required this.pokemonIds});
 
@@ -35,7 +39,7 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
   late Future<List<PokemonEntity>> _pokemonFuture;
   ComparisonSort _sort = ComparisonSort.dex;
   StatDisplayMode _statMode = StatDisplayMode.base;
-  int _level = 50;
+  final Map<int, int> _levels = <int, int>{};
 
   @override
   void initState() {
@@ -65,6 +69,7 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
             );
           }
           final ordered = _orderByRequestedIds(data, widget.pokemonIds);
+          _ensureLevels(ordered);
           return _ComparisonView(
             pokemon: ordered,
             sort: _sort,
@@ -73,14 +78,22 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
             onStatModeChanged: (mode) {
               setState(() => _statMode = mode);
             },
-            level: _level,
-            onLevelChanged: (value) {
-              setState(() => _level = value);
+            levels: _levels,
+            onLevelChanged: (pokemonId, level) {
+              setState(() {
+                _levels[pokemonId] = level.clamp(1, 100);
+              });
             },
           );
         },
       ),
     );
+  }
+
+  void _ensureLevels(List<PokemonEntity> pokemon) {
+    for (final entity in pokemon) {
+      _levels.putIfAbsent(entity.id, () => 50);
+    }
   }
 
   List<PokemonEntity> _orderByRequestedIds(
@@ -113,7 +126,7 @@ class _ComparisonView extends StatelessWidget {
     required this.onSortChanged,
     required this.statMode,
     required this.onStatModeChanged,
-    required this.level,
+    required this.levels,
     required this.onLevelChanged,
   });
 
@@ -122,25 +135,19 @@ class _ComparisonView extends StatelessWidget {
   final ValueChanged<ComparisonSort> onSortChanged;
   final StatDisplayMode statMode;
   final ValueChanged<StatDisplayMode> onStatModeChanged;
-  final int level;
-  final ValueChanged<int> onLevelChanged;
+  final Map<int, int> levels;
+  final void Function(int pokemonId, int level) onLevelChanged;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final calculator = appDependencies.statCalculator;
-    final baseStatsCache = <int, Map<String, int>>{};
-    final computedStatsCache = <int, Map<String, int>>{};
 
-    Map<String, int> baseStatsFor(PokemonEntity entity) {
-      return baseStatsCache.putIfAbsent(entity.id, () => _baseStatsFor(entity));
-    }
+    Map<String, int> baseStatsFor(PokemonEntity entity) =>
+        _baseStatsFor(entity);
 
     Map<String, int> computedStatsFor(PokemonEntity entity) {
-      return computedStatsCache.putIfAbsent(
-        entity.id,
-        () => calculator.computeStats(pokemon: entity, level: level),
-      );
+      final level = levels[entity.id] ?? 50;
+      return calculator.computeStats(pokemon: entity, level: level);
     }
 
     int totalFor(PokemonEntity entity, StatDisplayMode mode) {
@@ -186,9 +193,6 @@ class _ComparisonView extends StatelessWidget {
         .map((entity) => totalsByPokemon[entity.id] ?? 0)
         .toList(growable: false);
     final maxTotal = totals.isEmpty ? null : totals.reduce(math.max);
-    final statLabel = statMode == StatDisplayMode.base
-        ? 'Base stat total'
-        : 'Lv $level total';
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -242,29 +246,11 @@ class _ComparisonView extends StatelessWidget {
                   }
                 },
               ),
-              if (statMode == StatDisplayMode.computed) ...[
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Level', style: theme.textTheme.bodyMedium),
-                    Text('Lv $level', style: theme.textTheme.bodyMedium),
-                  ],
-                ),
-                Slider(
-                  value: level.toDouble(),
-                  min: 1,
-                  max: 100,
-                  divisions: 99,
-                  label: 'Lv $level',
-                  onChanged: (value) => onLevelChanged(value.round()),
-                ),
-              ],
             ],
           ),
         ),
         SizedBox(
-          height: 280,
+          height: statMode == StatDisplayMode.computed ? 420 : 280,
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             scrollDirection: Axis.horizontal,
@@ -274,11 +260,20 @@ class _ComparisonView extends StatelessWidget {
               final entity = sortedPokemon[index];
               final total = totalsByPokemon[entity.id] ?? 0;
               final isBest = maxTotal != null && total == maxTotal;
+              final level = levels[entity.id] ?? 50;
+              final statLabel = statMode == StatDisplayMode.base
+                  ? 'Base stat total'
+                  : 'Lv $level total';
               return _PokemonSummaryCard(
                 pokemon: entity,
                 statTotal: total,
                 statLabel: statLabel,
                 highlight: isBest,
+                level: level,
+                showLevelControls: statMode == StatDisplayMode.computed,
+                mode: kLevelControlMode,
+                onLevelChanged: (newLevel) =>
+                    onLevelChanged(entity.id, newLevel),
               );
             },
           ),
@@ -293,7 +288,7 @@ class _ComparisonView extends StatelessWidget {
               child: _StatsTable(
                 pokemon: sortedPokemon,
                 statMode: statMode,
-                level: level,
+                levels: levels,
                 statsByPokemon: statsByPokemon,
               ),
             ),
@@ -313,13 +308,13 @@ class _StatsTable extends StatelessWidget {
   const _StatsTable({
     required this.pokemon,
     required this.statMode,
-    required this.level,
+    required this.levels,
     required this.statsByPokemon,
   });
 
   final List<PokemonEntity> pokemon;
   final StatDisplayMode statMode;
-  final int level;
+  final Map<int, int> levels;
   final Map<int, Map<String, int>> statsByPokemon;
 
   @override
@@ -381,15 +376,15 @@ class _StatsTable extends StatelessWidget {
       DataRow(
         cells: [
           DataCell(
-            Text(
-              statMode == StatDisplayMode.base ? 'Total' : 'Total (Lv $level)',
-            ),
+            Text(statMode == StatDisplayMode.base ? 'Total' : 'Total (Lv)'),
           ),
-          for (final total in totals)
+          for (var i = 0; i < totals.length; i++)
             DataCell(
               Text(
-                total.toString(),
-                style: maxTotal != null && total == maxTotal
+                statMode == StatDisplayMode.base
+                    ? totals[i].toString()
+                    : '${totals[i]} (Lv ${levels[pokemon[i].id] ?? 50})',
+                style: maxTotal != null && totals[i] == maxTotal
                     ? theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: theme.colorScheme.primary,
@@ -410,7 +405,7 @@ class _StatsTable extends StatelessWidget {
         headingRowHeight: 48,
         dataRowMinHeight: 48,
         dataRowMaxHeight: 56,
-        headingRowColor: WidgetStatePropertyAll(
+        headingRowColor: MaterialStatePropertyAll(
           theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
         ),
       ),
@@ -424,12 +419,20 @@ class _PokemonSummaryCard extends StatelessWidget {
     required this.statTotal,
     required this.statLabel,
     required this.highlight,
+    required this.level,
+    required this.showLevelControls,
+    required this.mode,
+    required this.onLevelChanged,
   });
 
   final PokemonEntity pokemon;
   final int statTotal;
   final String statLabel;
   final bool highlight;
+  final int level;
+  final bool showLevelControls;
+  final LevelControlMode mode;
+  final ValueChanged<int> onLevelChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -496,7 +499,7 @@ class _PokemonSummaryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Text(statLabel, style: theme.textTheme.bodySmall),
                 const SizedBox(height: 4),
                 Row(
@@ -519,6 +522,14 @@ class _PokemonSummaryCard extends StatelessWidget {
                     ],
                   ],
                 ),
+                if (showLevelControls) ...[
+                  const SizedBox(height: 8),
+                  _LevelControl(
+                    mode: mode,
+                    level: level,
+                    onLevelChanged: onLevelChanged,
+                  ),
+                ],
               ],
             ),
           ),
@@ -539,6 +550,167 @@ class _ErrorView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(message, textAlign: TextAlign.center),
+      ),
+    );
+  }
+}
+
+class _LevelControl extends StatefulWidget {
+  const _LevelControl({
+    required this.mode,
+    required this.level,
+    required this.onLevelChanged,
+  });
+
+  final LevelControlMode mode;
+  final int level;
+  final ValueChanged<int> onLevelChanged;
+
+  @override
+  State<_LevelControl> createState() => _LevelControlState();
+}
+
+class _LevelControlState extends State<_LevelControl> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.level.toString());
+  }
+
+  @override
+  void didUpdateWidget(covariant _LevelControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.level != oldWidget.level) {
+      final value = widget.level.toString();
+      if (_controller.text != value) {
+        _controller.value = TextEditingValue(
+          text: value,
+          selection: TextSelection.collapsed(offset: value.length),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _applyLevel(int level) {
+    final clamped = level.clamp(1, 100);
+    if (clamped != widget.level) {
+      widget.onLevelChanged(clamped);
+    } else if (_controller.text != clamped.toString()) {
+      _controller.text = clamped.toString();
+    }
+  }
+
+  Widget _buildDragInput(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onPanUpdate: (details) {
+        final delta = (-details.delta.dy / 4).round();
+        if (delta != 0) {
+          _applyLevel(widget.level + delta);
+        }
+      },
+      child: SizedBox(
+        width: 160,
+        child: TextField(
+          controller: _controller,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: 'Level',
+            helperText: 'Drag up / down',
+            helperStyle: theme.textTheme.bodySmall,
+            isDense: true,
+          ),
+          onSubmitted: _handleText,
+          onTapOutside: (_) => _handleText(_controller.text),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButtonCluster(BuildContext context) {
+    final theme = Theme.of(context);
+    const pairs = <List<int>>[
+      [-1, 1],
+      [-5, 5],
+      [-10, 10],
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Level ${widget.level}', style: theme.textTheme.bodyMedium),
+        const SizedBox(height: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final pair in pairs) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _IncrementButton(
+                    label: pair[0].toString(),
+                    onPressed: () => _applyLevel(widget.level + pair[0]),
+                  ),
+                  const SizedBox(width: 12),
+                  _IncrementButton(
+                    label: '+${pair[1]}',
+                    onPressed: () => _applyLevel(widget.level + pair[1]),
+                  ),
+                ],
+              ),
+              if (pair != pairs.last) const SizedBox(height: 6),
+            ],
+          ],
+        )
+      ],
+    );
+  }
+
+  void _handleText(String value) {
+    final parsed = int.tryParse(value);
+    if (parsed != null) {
+      _applyLevel(parsed);
+    } else {
+      _controller.text = widget.level.toString();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (widget.mode) {
+      case LevelControlMode.dragInput:
+        return _buildDragInput(context);
+      case LevelControlMode.buttonCluster:
+        return _buildButtonCluster(context);
+    }
+  }
+}
+
+class _IncrementButton extends StatelessWidget {
+  const _IncrementButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: const Size(44, 32),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onPressed: onPressed,
+        child: Text(label),
       ),
     );
   }

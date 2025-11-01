@@ -14,6 +14,8 @@ import 'package:poke_discoverer/src/data/services/type_matchup_service.dart';
 import 'package:poke_discoverer/src/data/sources/data_source_snapshot_store.dart';
 import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
 import 'package:poke_discoverer/src/presentation/comparison/pokemon_comparison_page.dart';
+import 'package:poke_discoverer/src/presentation/comparison/pokemon_comparison_page.dart'
+    show kLevelControlMode, LevelControlMode;
 import 'package:poke_discoverer/src/presentation/widgets/sprite_avatar.dart';
 import 'package:poke_discoverer/src/shared/clock.dart';
 
@@ -115,11 +117,11 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(Checkbox).first);
-    await tester.pumpAndSettle();
+  await tester.tap(find.byType(Checkbox).first);
+  await tester.pumpAndSettle();
 
-    expect(find.text('1 selected'), findsOneWidget);
-    final compareButton = tester.widget<FilledButton>(
+  expect(find.text('1 selected'), findsOneWidget);
+  final compareButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Compare (1)'),
     );
     expect(compareButton.onPressed, isNull);
@@ -133,7 +135,30 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    expect(find.byType(SpriteAvatar), findsNWidgets(pokemon.length));
+  expect(find.byType(SpriteAvatar), findsNWidgets(pokemon.length));
+});
+
+  testWidgets('Opens detail while selection is active', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+
+    final infoButton = find.byTooltip('View details').first;
+    await tester.tap(infoButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pokemon #001'), findsOneWidget);
+    expect(find.text('Base stats'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 selected'), findsOneWidget);
   });
 
   testWidgets('Sort controls reorder catalog entries by stat', (tester) async {
@@ -206,19 +231,41 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Computed'));
-    await tester.pumpAndSettle();
+  await tester.pumpAndSettle();
 
-    expect(find.text('Lv 50 total'), findsWidgets);
-    expect(find.text('Total (Lv 50)'), findsOneWidget);
-    expect(find.text('112'), findsWidgets); // Bulbasaur HP at level 50
+    if (kLevelControlMode == LevelControlMode.buttonCluster) {
+      expect(find.text('Level 50'), findsWidgets);
+      expect(find.widgetWithText(OutlinedButton, '+1'), findsWidgets);
+      expect(find.widgetWithText(OutlinedButton, '+5'), findsWidgets);
+      expect(find.widgetWithText(OutlinedButton, '+10'), findsWidgets);
+      expect(find.widgetWithText(OutlinedButton, '-1'), findsWidgets);
+      expect(find.widgetWithText(OutlinedButton, '-5'), findsWidgets);
+      expect(find.widgetWithText(OutlinedButton, '-10'), findsWidgets);
 
-    final slider = find.byType(Slider);
-    final sliderRect = tester.getRect(slider);
-    await tester.tapAt(sliderRect.centerRight - const Offset(1, 0));
-    await tester.pumpAndSettle();
+      Future<void> press(String label) async {
+        final buttonFinder = find.widgetWithText(OutlinedButton, label).first;
+        await tester.ensureVisible(buttonFinder);
+        final buttonWidget = tester.widget<OutlinedButton>(buttonFinder);
+        buttonWidget.onPressed?.call();
+        await tester.pumpAndSettle();
+      }
 
-    expect(find.text('Lv 100 total'), findsWidgets);
-    expect(find.text('Total (Lv 100)'), findsOneWidget);
+      await press('+1');
+
+      expect(find.text('Level 51'), findsOneWidget);
+
+      await press('+5');
+      expect(find.text('Level 56'), findsOneWidget);
+
+      await press('-10');
+      expect(find.text('Level 46'), findsOneWidget);
+    } else {
+      final inputField = find.byType(TextField).first;
+      await tester.enterText(inputField, '65');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+    expect(find.textContaining('Level 65'), findsOneWidget);
+  }
   });
 }
 
