@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../bootstrap.dart' show appDependencies;
+import '../../bootstrap.dart'
+    show AppDependencies, appDependencies, initializeDependencies;
 import '../../data/models/pokemon_models.dart';
 import '../../data/services/type_matchup_service.dart';
 import '../detail/pokemon_detail_page.dart';
@@ -26,6 +28,19 @@ enum LevelControlMode { dragInput, buttonCluster }
 
 const LevelControlMode kLevelControlMode = LevelControlMode.buttonCluster;
 
+typedef InitializeDependenciesCallback = Future<AppDependencies> Function({
+  bool forceImport,
+});
+
+@visibleForTesting
+InitializeDependenciesCallback initializeComparisonDependencies =
+    initializeDependencies;
+
+@visibleForTesting
+void resetInitializeComparisonDependencies() {
+  initializeComparisonDependencies = initializeDependencies;
+}
+
 class PokemonComparisonPage extends StatefulWidget {
   const PokemonComparisonPage({super.key, required this.pokemonIds});
 
@@ -40,6 +55,8 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
   ComparisonSort _sort = ComparisonSort.dex;
   StatDisplayMode _statMode = StatDisplayMode.base;
   final Map<int, int> _levels = <int, int>{};
+  bool _isSeeding = false;
+  String? _seedError;
 
   @override
   void initState() {
@@ -63,12 +80,13 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
             return _ErrorView(message: snapshot.error.toString());
           }
           final data = snapshot.data ?? const <PokemonEntity>[];
-          if (data.isEmpty) {
+          final ordered = _orderByRequestedIds(data, widget.pokemonIds);
+          final missingIds = _missingIdsFor(ordered);
+          if (ordered.isEmpty && missingIds.isEmpty) {
             return const _ErrorView(
               message: 'No Pokemon available to compare.',
             );
           }
-          final ordered = _orderByRequestedIds(data, widget.pokemonIds);
           _ensureLevels(ordered);
           return _ComparisonView(
             pokemon: ordered,
@@ -84,6 +102,10 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
                 _levels[pokemonId] = level.clamp(1, 100);
               });
             },
+            missingIds: missingIds,
+            isSeeding: _isSeeding,
+            seedError: _seedError,
+            onSeedRequested: _handleSeedRequest,
           );
         },
       ),
@@ -117,6 +139,41 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
     }
     return ordered;
   }
+
+  List<int> _missingIdsFor(List<PokemonEntity> present) {
+    final presentIds = present.map((entity) => entity.id).toSet();
+    return widget.pokemonIds
+        .where((id) => !presentIds.contains(id))
+        .toList(growable: false);
+  }
+
+  Future<void> _handleSeedRequest() async {
+    if (_isSeeding) return;
+    setState(() {
+      _isSeeding = true;
+      _seedError = null;
+    });
+    try {
+      final refreshed =
+          await initializeComparisonDependencies(forceImport: true);
+      appDependencies = refreshed;
+      _levels.clear();
+      setState(() {
+        _pokemonFuture =
+            appDependencies.catalogService.getPokemonByIds(widget.pokemonIds);
+      });
+    } catch (error) {
+      setState(() {
+        _seedError = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSeeding = false;
+        });
+      }
+    }
+  }
 }
 
 class _ComparisonView extends StatelessWidget {
@@ -128,6 +185,10 @@ class _ComparisonView extends StatelessWidget {
     required this.onStatModeChanged,
     required this.levels,
     required this.onLevelChanged,
+    required this.missingIds,
+    required this.isSeeding,
+    required this.seedError,
+    required this.onSeedRequested,
   });
 
   final List<PokemonEntity> pokemon;
@@ -137,6 +198,10 @@ class _ComparisonView extends StatelessWidget {
   final ValueChanged<StatDisplayMode> onStatModeChanged;
   final Map<int, int> levels;
   final void Function(int pokemonId, int level) onLevelChanged;
+  final List<int> missingIds;
+  final bool isSeeding;
+  final String? seedError;
+  final VoidCallback onSeedRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -176,6 +241,31 @@ class _ComparisonView extends StatelessWidget {
         break;
     }
 
+    if (sortedPokemon.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        children: [
+          if (missingIds.isNotEmpty)
+            _MissingDataBanner(
+              missingIds: missingIds,
+              isSeeding: isSeeding,
+              seedError: seedError,
+              onSeedRequested: onSeedRequested,
+            ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Import the cached Pokemon data to compare these Pokemon offline.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     final statsByPokemon = <int, Map<String, int>>{};
     final totalsByPokemon = <int, int>{};
     for (final entity in sortedPokemon) {
@@ -197,6 +287,16 @@ class _ComparisonView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
+        if (missingIds.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: _MissingDataBanner(
+              missingIds: missingIds,
+              isSeeding: isSeeding,
+              seedError: seedError,
+              onSeedRequested: onSeedRequested,
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(
@@ -711,6 +811,74 @@ class _IncrementButton extends StatelessWidget {
         ),
         onPressed: onPressed,
         child: Text(label),
+      ),
+    );
+  }
+}
+
+class _MissingDataBanner extends StatelessWidget {
+  const _MissingDataBanner({
+    required this.missingIds,
+    required this.isSeeding,
+    required this.seedError,
+    required this.onSeedRequested,
+  });
+
+  final List<int> missingIds;
+  final bool isSeeding;
+  final String? seedError;
+  final VoidCallback onSeedRequested;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = missingIds.length;
+    final formattedIds = missingIds
+        .map((id) => '#${id.toString().padLeft(3, '0')}')
+        .join(', ');
+    final message = count == 1
+        ? '$formattedIds is missing from the local cache.'
+        : '$count Pokemon are missing from the local cache: $formattedIds.';
+
+    return Card(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                FilledButton.icon(
+                  onPressed: isSeeding ? null : onSeedRequested,
+                  icon: isSeeding
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download),
+                  label: Text(isSeeding ? 'Seeding…' : 'Import cached data'),
+                ),
+                const SizedBox(width: 12),
+                if (seedError != null)
+                  Expanded(
+                    child: Text(
+                      'Failed: $seedError',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -13,9 +13,13 @@ import 'package:poke_discoverer/src/data/services/pokemon_stat_calculator.dart';
 import 'package:poke_discoverer/src/data/services/type_matchup_service.dart';
 import 'package:poke_discoverer/src/data/sources/data_source_snapshot_store.dart';
 import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
-import 'package:poke_discoverer/src/presentation/comparison/pokemon_comparison_page.dart';
 import 'package:poke_discoverer/src/presentation/comparison/pokemon_comparison_page.dart'
-    show kLevelControlMode, LevelControlMode;
+    show
+        LevelControlMode,
+        PokemonComparisonPage,
+        initializeComparisonDependencies,
+        kLevelControlMode,
+        resetInitializeComparisonDependencies;
 import 'package:poke_discoverer/src/presentation/widgets/sprite_avatar.dart';
 import 'package:poke_discoverer/src/shared/clock.dart';
 
