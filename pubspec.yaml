@@ -1,5 +1,8 @@
 name: poke_discoverer
-description: "A new Flutter project."
+# Summary: A cross-platform Flutter app for browsing, searching, and comparing Pokémon data, building teams, and running lightweight battle simulations—all powered by offline PokéAPI CSV data.
+description: |
+  Poke Discoverer is an open-source Pokémon catalog and team builder designed for privacy and offline use. The app seeds its local SQLite cache from official PokéAPI CSV exports, allowing users to browse, search, and filter Pokémon by name, type, or stats. Features include a detailed catalog, stat-based sorting, multi-Pokémon comparison, and a team-building interface. The app works on desktop and web, with all data processing and storage handled locally—no external servers or proprietary services required. Ideal for trainers, researchers, and fans who want a fast, ad-free, and analytics-free Pokémon experience.
+
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 0.0.1+1
 
 environment:
   sdk: ^3.9.2
@@ -54,13 +57,20 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   mocktail: ^1.0.4
   sqflite_common_ffi: ^2.3.0
+  flutter_launcher_icons: ^0.13.1
+# App icon configuration
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
