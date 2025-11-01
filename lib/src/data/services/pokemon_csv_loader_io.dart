@@ -1,4 +1,3 @@
-
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
@@ -19,8 +18,7 @@ class _AssetCsvLoader implements CsvLoader {
   @override
   Future<List<Map<String, String>>> readCsv(String fileName) async {
     final raw = await readCsvString(fileName);
-    final normalized =
-        raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final normalized = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     final rows = const CsvToListConverter(eol: '\n').convert(normalized);
     if (rows.isEmpty) return const [];
     final headers = rows.first.map((value) => value.toString()).toList();
@@ -36,10 +34,7 @@ class _AssetCsvLoader implements CsvLoader {
   }
 }
 
-CsvLoader createPlatformCsvLoader({
-  String? filesystemRoot,
-  String? assetRoot,
-}) {
+CsvLoader createPlatformCsvLoader({String? filesystemRoot, String? assetRoot}) {
   if (assetRoot == null) {
     throw ArgumentError.notNull('assetRoot');
   }
