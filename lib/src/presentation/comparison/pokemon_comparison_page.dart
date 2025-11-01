@@ -28,9 +28,8 @@ enum LevelControlMode { dragInput, buttonCluster }
 
 const LevelControlMode kLevelControlMode = LevelControlMode.buttonCluster;
 
-typedef InitializeDependenciesCallback = Future<AppDependencies> Function({
-  bool forceImport,
-});
+typedef InitializeDependenciesCallback =
+    Future<AppDependencies> Function({bool forceImport});
 
 @visibleForTesting
 InitializeDependenciesCallback initializeComparisonDependencies =
@@ -154,13 +153,15 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
       _seedError = null;
     });
     try {
-      final refreshed =
-          await initializeComparisonDependencies(forceImport: true);
+      final refreshed = await initializeComparisonDependencies(
+        forceImport: true,
+      );
       appDependencies = refreshed;
       _levels.clear();
       setState(() {
-        _pokemonFuture =
-            appDependencies.catalogService.getPokemonByIds(widget.pokemonIds);
+        _pokemonFuture = appDependencies.catalogService.getPokemonByIds(
+          widget.pokemonIds,
+        );
       });
     } catch (error) {
       setState(() {
@@ -505,7 +506,7 @@ class _StatsTable extends StatelessWidget {
         headingRowHeight: 48,
         dataRowMinHeight: 48,
         dataRowMaxHeight: 56,
-        headingRowColor: MaterialStatePropertyAll(
+        headingRowColor: WidgetStatePropertyAll(
           theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
         ),
       ),
@@ -768,7 +769,7 @@ class _LevelControlState extends State<_LevelControl> {
               if (pair != pairs.last) const SizedBox(height: 6),
             ],
           ],
-        )
+        ),
       ],
     );
   }
@@ -847,10 +848,7 @@ class _MissingDataBanner extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message,
-              style: theme.textTheme.bodyMedium,
-            ),
+            Text(message, style: theme.textTheme.bodyMedium),
             const SizedBox(height: 12),
             Row(
               children: [
