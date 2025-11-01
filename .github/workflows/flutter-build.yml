@@ -1,5 +1,9 @@
 
+
 name: Flutter Release Build
+
+permissions:
+  contents: write
 
 on:
   push:
