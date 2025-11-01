@@ -44,5 +44,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android keystore environment (do not commit secrets)
+android/app/keystore.env
+
 /data
 /assets/**/*.csv
