@@ -19,6 +19,7 @@ const Map<String, String> _kStatLabels = <String, String>{
 };
 
 enum ComparisonSort { dex, name, total }
+
 enum StatDisplayMode { base, computed }
 
 class PokemonComparisonPage extends StatefulWidget {
@@ -132,10 +133,7 @@ class _ComparisonView extends StatelessWidget {
     final computedStatsCache = <int, Map<String, int>>{};
 
     Map<String, int> baseStatsFor(PokemonEntity entity) {
-      return baseStatsCache.putIfAbsent(
-        entity.id,
-        () => _baseStatsFor(entity),
-      );
+      return baseStatsCache.putIfAbsent(entity.id, () => _baseStatsFor(entity));
     }
 
     Map<String, int> computedStatsFor(PokemonEntity entity) {
@@ -164,8 +162,7 @@ class _ComparisonView extends StatelessWidget {
         break;
       case ComparisonSort.total:
         sortedPokemon.sort((a, b) {
-          final diff =
-              totalFor(b, statMode).compareTo(totalFor(a, statMode));
+          final diff = totalFor(b, statMode).compareTo(totalFor(a, statMode));
           if (diff != 0) return diff;
           return a.id.compareTo(b.id);
         });
@@ -179,8 +176,10 @@ class _ComparisonView extends StatelessWidget {
           ? baseStatsFor(entity)
           : computedStatsFor(entity);
       statsByPokemon[entity.id] = stats;
-      totalsByPokemon[entity.id] =
-          stats.values.fold<int>(0, (sum, value) => sum + value);
+      totalsByPokemon[entity.id] = stats.values.fold<int>(
+        0,
+        (sum, value) => sum + value,
+      );
     }
 
     final totals = sortedPokemon
@@ -310,7 +309,6 @@ class _ComparisonView extends StatelessWidget {
   }
 }
 
-
 class _StatsTable extends StatelessWidget {
   const _StatsTable({
     required this.pokemon,
@@ -372,17 +370,21 @@ class _StatsTable extends StatelessWidget {
 
     final totals = pokemon
         .map(
-          (entity) => statsByPokemon[entity.id]!.values
-              .fold<int>(0, (sum, value) => sum + value),
+          (entity) => statsByPokemon[entity.id]!.values.fold<int>(
+            0,
+            (sum, value) => sum + value,
+          ),
         )
         .toList(growable: false);
     final maxTotal = totals.isEmpty ? null : totals.reduce(math.max);
     rows.add(
       DataRow(
         cells: [
-          DataCell(Text(
-            statMode == StatDisplayMode.base ? 'Total' : 'Total (Lv $level)',
-          )),
+          DataCell(
+            Text(
+              statMode == StatDisplayMode.base ? 'Total' : 'Total (Lv $level)',
+            ),
+          ),
           for (final total in totals)
             DataCell(
               Text(
@@ -408,7 +410,7 @@ class _StatsTable extends StatelessWidget {
         headingRowHeight: 48,
         dataRowMinHeight: 48,
         dataRowMaxHeight: 56,
-        headingRowColor: MaterialStatePropertyAll(
+        headingRowColor: WidgetStatePropertyAll(
           theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
         ),
       ),
