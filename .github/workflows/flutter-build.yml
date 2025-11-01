@@ -1,5 +1,3 @@
-
-
 name: Flutter Release Build
 
 permissions:
@@ -9,7 +7,6 @@ on:
   push:
     tags:
       - 'v*.*.*'
-
 
 jobs:
   build:
