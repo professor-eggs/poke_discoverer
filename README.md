@@ -5,6 +5,7 @@ building teams, and running lightweight battle simulations. The stack is designe
 work offline by seeding an embedded SQLite cache from the official PokéAPI CSV exports.
 
 ## Prerequisites
+
 - Flutter 3.x (Web, Windows, Android targets enabled)
 - Dart SDK (bundled with Flutter)
 - Git LFS if you intend to manage large CSV snapshots separately
@@ -16,6 +17,7 @@ flutter pub get
 ```
 
 ## Data Assets
+
 The app bootstraps its cache from PokéAPI CSVs. Keep two copies of the dataset:
 
 - `data/pokeapi-master/data/v2/csv/` – raw CSV dump used by local tooling/tests.
@@ -27,6 +29,7 @@ After updating assets, run `flutter pub get` (or `flutter pub run build_runner` 
 to refresh the Flutter asset manifest.
 
 ## Web (Edge/Chrome/Safari) Support
+
 SQLite on the web relies on `sqflite_common_ffi_web`. Run the following once per machine
 to generate the required shared worker (`sqflite_sw.js`) and `sqlite3.wasm` binaries:
 
@@ -47,9 +50,9 @@ Unit tests cover repository behavior, CSV ingestion, and widget wiring. Integrat
 will be added as part of the phased delivery plan captured in `docs/erd-and-milestones.md`.
 
 ## Launching the App
+
 - Native/Desktop: `flutter run`
 - Web (Edge/Chrome): `flutter run -d edge`
-
 
 Use the catalog screen’s “Seed data snapshot” action to import CSV data into SQLite on demand.
 When running on the web the ingestion service reads from the bundled asset CSVs; on desktop it
