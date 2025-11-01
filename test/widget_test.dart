@@ -9,6 +9,7 @@ import 'package:poke_discoverer/src/data/models/pokemon_models.dart';
 import 'package:poke_discoverer/src/data/repositories/data_source_snapshot_repository.dart';
 import 'package:poke_discoverer/src/data/services/pokemon_catalog_service.dart';
 import 'package:poke_discoverer/src/data/services/pokemon_csv_loader.dart';
+import 'package:poke_discoverer/src/data/services/pokemon_stat_calculator.dart';
 import 'package:poke_discoverer/src/data/services/type_matchup_service.dart';
 import 'package:poke_discoverer/src/data/sources/data_source_snapshot_store.dart';
 import 'package:poke_discoverer/src/data/sources/pokemon_cache_store.dart';
@@ -194,6 +195,31 @@ void main() {
   expect(find.text('Needs coverage'), findsOneWidget);
   expect(find.text('Covered by team'), findsOneWidget);
 });
+
+  testWidgets('Computed stats mode recalculates totals by level', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4, 7])),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Computed'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lv 50 total'), findsWidgets);
+    expect(find.text('Total (Lv 50)'), findsOneWidget);
+    expect(find.text('112'), findsWidgets); // Bulbasaur HP at level 50
+
+    final slider = find.byType(Slider);
+    final sliderRect = tester.getRect(slider);
+    await tester.tapAt(sliderRect.centerRight - const Offset(1, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lv 100 total'), findsWidgets);
+    expect(find.text('Total (Lv 100)'), findsOneWidget);
+  });
 }
 
 PokemonEntity _buildPokemon({
@@ -442,5 +468,6 @@ void _arrangeCatalogDependencies(List<PokemonEntity> pokemon) {
     ),
     csvLoader: const _StubCsvLoader(),
     typeMatchupService: const _FakeTypeMatchupService(),
+    statCalculator: const PokemonStatCalculator(),
   );
 }

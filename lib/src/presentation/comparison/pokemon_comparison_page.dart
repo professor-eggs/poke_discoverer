@@ -19,6 +19,7 @@ const Map<String, String> _kStatLabels = <String, String>{
 };
 
 enum ComparisonSort { dex, name, total }
+enum StatDisplayMode { base, computed }
 
 class PokemonComparisonPage extends StatefulWidget {
   const PokemonComparisonPage({super.key, required this.pokemonIds});
@@ -32,6 +33,8 @@ class PokemonComparisonPage extends StatefulWidget {
 class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
   late Future<List<PokemonEntity>> _pokemonFuture;
   ComparisonSort _sort = ComparisonSort.dex;
+  StatDisplayMode _statMode = StatDisplayMode.base;
+  int _level = 50;
 
   @override
   void initState() {
@@ -65,6 +68,14 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
             pokemon: ordered,
             sort: _sort,
             onSortChanged: (value) => setState(() => _sort = value),
+            statMode: _statMode,
+            onStatModeChanged: (mode) {
+              setState(() => _statMode = mode);
+            },
+            level: _level,
+            onLevelChanged: (value) {
+              setState(() => _level = value);
+            },
           );
         },
       ),
@@ -99,47 +110,158 @@ class _ComparisonView extends StatelessWidget {
     required this.pokemon,
     required this.sort,
     required this.onSortChanged,
+    required this.statMode,
+    required this.onStatModeChanged,
+    required this.level,
+    required this.onLevelChanged,
   });
 
   final List<PokemonEntity> pokemon;
   final ComparisonSort sort;
   final ValueChanged<ComparisonSort> onSortChanged;
+  final StatDisplayMode statMode;
+  final ValueChanged<StatDisplayMode> onStatModeChanged;
+  final int level;
+  final ValueChanged<int> onLevelChanged;
 
   @override
   Widget build(BuildContext context) {
-    final sortedPokemon = _sortedPokemon(pokemon, sort);
-    final totals = sortedPokemon.map(_baseStatTotal).toList(growable: false);
+    final theme = Theme.of(context);
+    final calculator = appDependencies.statCalculator;
+    final baseStatsCache = <int, Map<String, int>>{};
+    final computedStatsCache = <int, Map<String, int>>{};
+
+    Map<String, int> baseStatsFor(PokemonEntity entity) {
+      return baseStatsCache.putIfAbsent(
+        entity.id,
+        () => _baseStatsFor(entity),
+      );
+    }
+
+    Map<String, int> computedStatsFor(PokemonEntity entity) {
+      return computedStatsCache.putIfAbsent(
+        entity.id,
+        () => calculator.computeStats(pokemon: entity, level: level),
+      );
+    }
+
+    int totalFor(PokemonEntity entity, StatDisplayMode mode) {
+      final stats = mode == StatDisplayMode.base
+          ? baseStatsFor(entity)
+          : computedStatsFor(entity);
+      return stats.values.fold<int>(0, (sum, value) => sum + value);
+    }
+
+    final sortedPokemon = List<PokemonEntity>.from(pokemon);
+    switch (sort) {
+      case ComparisonSort.dex:
+        sortedPokemon.sort((a, b) => a.id.compareTo(b.id));
+        break;
+      case ComparisonSort.name:
+        sortedPokemon.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+        break;
+      case ComparisonSort.total:
+        sortedPokemon.sort((a, b) {
+          final diff =
+              totalFor(b, statMode).compareTo(totalFor(a, statMode));
+          if (diff != 0) return diff;
+          return a.id.compareTo(b.id);
+        });
+        break;
+    }
+
+    final statsByPokemon = <int, Map<String, int>>{};
+    final totalsByPokemon = <int, int>{};
+    for (final entity in sortedPokemon) {
+      final stats = statMode == StatDisplayMode.base
+          ? baseStatsFor(entity)
+          : computedStatsFor(entity);
+      statsByPokemon[entity.id] = stats;
+      totalsByPokemon[entity.id] =
+          stats.values.fold<int>(0, (sum, value) => sum + value);
+    }
+
+    final totals = sortedPokemon
+        .map((entity) => totalsByPokemon[entity.id] ?? 0)
+        .toList(growable: false);
     final maxTotal = totals.isEmpty ? null : totals.reduce(math.max);
+    final statLabel = statMode == StatDisplayMode.base
+        ? 'Base stat total'
+        : 'Lv $level total';
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: SegmentedButton<ComparisonSort>(
-            segments: const [
-              ButtonSegment(
-                value: ComparisonSort.dex,
-                label: Text('Dex'),
-                icon: Icon(Icons.numbers),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SegmentedButton<ComparisonSort>(
+                segments: const [
+                  ButtonSegment(
+                    value: ComparisonSort.dex,
+                    label: Text('Dex'),
+                    icon: Icon(Icons.numbers),
+                  ),
+                  ButtonSegment(
+                    value: ComparisonSort.name,
+                    label: Text('Name'),
+                    icon: Icon(Icons.sort_by_alpha),
+                  ),
+                  ButtonSegment(
+                    value: ComparisonSort.total,
+                    label: Text('Total'),
+                    icon: Icon(Icons.bar_chart),
+                  ),
+                ],
+                selected: <ComparisonSort>{sort},
+                onSelectionChanged: (selection) {
+                  if (selection.isNotEmpty) {
+                    onSortChanged(selection.first);
+                  }
+                },
               ),
-              ButtonSegment(
-                value: ComparisonSort.name,
-                label: Text('Name'),
-                icon: Icon(Icons.sort_by_alpha),
+              const SizedBox(height: 16),
+              SegmentedButton<StatDisplayMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: StatDisplayMode.base,
+                    label: Text('Base'),
+                  ),
+                  ButtonSegment(
+                    value: StatDisplayMode.computed,
+                    label: Text('Computed'),
+                  ),
+                ],
+                selected: <StatDisplayMode>{statMode},
+                onSelectionChanged: (selection) {
+                  if (selection.isNotEmpty) {
+                    onStatModeChanged(selection.first);
+                  }
+                },
               ),
-              ButtonSegment(
-                value: ComparisonSort.total,
-                label: Text('BST'),
-                icon: Icon(Icons.bar_chart),
-              ),
+              if (statMode == StatDisplayMode.computed) ...[
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Level', style: theme.textTheme.bodyMedium),
+                    Text('Lv $level', style: theme.textTheme.bodyMedium),
+                  ],
+                ),
+                Slider(
+                  value: level.toDouble(),
+                  min: 1,
+                  max: 100,
+                  divisions: 99,
+                  label: 'Lv $level',
+                  onChanged: (value) => onLevelChanged(value.round()),
+                ),
+              ],
             ],
-            selected: <ComparisonSort>{sort},
-            onSelectionChanged: (selection) {
-              if (selection.isNotEmpty) {
-                onSortChanged(selection.first);
-              }
-            },
           ),
         ),
         SizedBox(
@@ -151,10 +273,12 @@ class _ComparisonView extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final entity = sortedPokemon[index];
-              final isBest = maxTotal != null && totals[index] == maxTotal;
+              final total = totalsByPokemon[entity.id] ?? 0;
+              final isBest = maxTotal != null && total == maxTotal;
               return _PokemonSummaryCard(
                 pokemon: entity,
-                baseStatTotal: totals[index],
+                statTotal: total,
+                statLabel: statLabel,
                 highlight: isBest,
               );
             },
@@ -167,7 +291,12 @@ class _ComparisonView extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: _StatsTable(pokemon: sortedPokemon),
+              child: _StatsTable(
+                pokemon: sortedPokemon,
+                statMode: statMode,
+                level: level,
+                statsByPokemon: statsByPokemon,
+              ),
             ),
           ),
         ),
@@ -179,37 +308,21 @@ class _ComparisonView extends StatelessWidget {
       ],
     );
   }
-
-  List<PokemonEntity> _sortedPokemon(
-    List<PokemonEntity> source,
-    ComparisonSort sort,
-  ) {
-    final copy = List<PokemonEntity>.from(source);
-    switch (sort) {
-      case ComparisonSort.dex:
-        copy.sort((a, b) => a.id.compareTo(b.id));
-        break;
-      case ComparisonSort.name:
-        copy.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-        break;
-      case ComparisonSort.total:
-        copy.sort((a, b) {
-          final totalDiff = _baseStatTotal(b).compareTo(_baseStatTotal(a));
-          if (totalDiff != 0) return totalDiff;
-          return a.id.compareTo(b.id);
-        });
-        break;
-    }
-    return copy;
-  }
 }
 
+
 class _StatsTable extends StatelessWidget {
-  const _StatsTable({required this.pokemon});
+  const _StatsTable({
+    required this.pokemon,
+    required this.statMode,
+    required this.level,
+    required this.statsByPokemon,
+  });
 
   final List<PokemonEntity> pokemon;
+  final StatDisplayMode statMode;
+  final int level;
+  final Map<int, Map<String, int>> statsByPokemon;
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +341,7 @@ class _StatsTable extends StatelessWidget {
     final rows = <DataRow>[];
     for (final statId in _kStatOrder) {
       final values = pokemon
-          .map((entity) => entity.defaultForm.baseStat(statId))
+          .map((entity) => statsByPokemon[entity.id]?[statId])
           .toList(growable: false);
       int? maxValue;
       for (final value in values) {
@@ -257,12 +370,19 @@ class _StatsTable extends StatelessWidget {
       );
     }
 
-    final totals = pokemon.map(_baseStatTotal).toList(growable: false);
+    final totals = pokemon
+        .map(
+          (entity) => statsByPokemon[entity.id]!.values
+              .fold<int>(0, (sum, value) => sum + value),
+        )
+        .toList(growable: false);
     final maxTotal = totals.isEmpty ? null : totals.reduce(math.max);
     rows.add(
       DataRow(
         cells: [
-          const DataCell(Text('Total')),
+          DataCell(Text(
+            statMode == StatDisplayMode.base ? 'Total' : 'Total (Lv $level)',
+          )),
           for (final total in totals)
             DataCell(
               Text(
@@ -289,7 +409,7 @@ class _StatsTable extends StatelessWidget {
         dataRowMinHeight: 48,
         dataRowMaxHeight: 56,
         headingRowColor: MaterialStatePropertyAll(
-          theme.colorScheme.surfaceVariant.withOpacity(0.6),
+          theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
         ),
       ),
     );
@@ -299,12 +419,14 @@ class _StatsTable extends StatelessWidget {
 class _PokemonSummaryCard extends StatelessWidget {
   const _PokemonSummaryCard({
     required this.pokemon,
-    required this.baseStatTotal,
+    required this.statTotal,
+    required this.statLabel,
     required this.highlight,
   });
 
   final PokemonEntity pokemon;
-  final int baseStatTotal;
+  final int statTotal;
+  final String statLabel;
   final bool highlight;
 
   @override
@@ -340,8 +462,8 @@ class _PokemonSummaryCard extends StatelessWidget {
                     SpriteAvatar(
                       pokemon: pokemon,
                       size: 56,
-                      backgroundColor:
-                          theme.colorScheme.surfaceVariant.withOpacity(0.8),
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest
+                          .withOpacity(0.8),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -373,16 +495,13 @@ class _PokemonSummaryCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Base stat total',
-                  style: theme.textTheme.bodySmall,
-                ),
+                Text(statLabel, style: theme.textTheme.bodySmall),
                 const SizedBox(height: 4),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      baseStatTotal.toString(),
+                      statTotal.toString(),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: accentColor,
                         fontWeight: highlight ? FontWeight.w600 : null,
@@ -406,7 +525,6 @@ class _PokemonSummaryCard extends StatelessWidget {
     );
   }
 }
-
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message});
@@ -436,9 +554,7 @@ class _TeamCoverageCard extends StatelessWidget {
     }
 
     final future = appDependencies.typeMatchupService.teamCoverage(
-      pokemon
-          .map((entity) => entity.defaultForm.types)
-          .toList(growable: false),
+      pokemon.map((entity) => entity.defaultForm.types).toList(growable: false),
     );
 
     return Card(
@@ -472,7 +588,8 @@ class _TeamCoverageCard extends StatelessWidget {
               );
             }
 
-            final summary = snapshot.data ??
+            final summary =
+                snapshot.data ??
                 const TypeCoverageSummary(
                   sharedWeaknesses: <TypeEffectivenessEntry>[],
                   uncoveredWeaknesses: <TypeEffectivenessEntry>[],
@@ -572,30 +689,14 @@ class _CoverageGroup extends StatelessWidget {
       ),
     );
   }
-
-  static String _capitalize(String value) {
-    if (value.isEmpty) {
-      return value;
-    }
-    return value[0].toUpperCase() + value.substring(1);
-  }
-
-  static String _formatMultiplier(double multiplier) {
-    if (multiplier == 0) {
-      return 'x0';
-    }
-    if (multiplier % 1 == 0) {
-      return 'x${multiplier.toInt()}';
-    }
-    return 'x${multiplier.toStringAsFixed(multiplier == 0.25 ? 2 : 1)}';
-  }
 }
 
-int _baseStatTotal(PokemonEntity pokemon) {
-  return pokemon.defaultForm.stats.fold<int>(
-    0,
-    (total, stat) => total + stat.baseValue,
-  );
+Map<String, int> _baseStatsFor(PokemonEntity pokemon) {
+  final map = <String, int>{};
+  for (final stat in pokemon.defaultForm.stats) {
+    map[stat.statId] = stat.baseValue;
+  }
+  return map;
 }
 
 String _capitalize(String value) {
@@ -603,4 +704,14 @@ String _capitalize(String value) {
     return value;
   }
   return value[0].toUpperCase() + value.substring(1);
+}
+
+String _formatMultiplier(double multiplier) {
+  if (multiplier == 0) {
+    return 'x0';
+  }
+  if (multiplier % 1 == 0) {
+    return 'x${multiplier.toInt()}';
+  }
+  return 'x${multiplier.toStringAsFixed(multiplier == 0.25 ? 2 : 1)}';
 }

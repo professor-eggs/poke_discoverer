@@ -84,7 +84,7 @@ class _PokemonDetailBody extends StatelessWidget {
                     label: Text(_capitalize(type)),
                     backgroundColor: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant,
+                    ).colorScheme.surfaceContainerHighest,
                   ),
                 )
                 .toList(growable: false),
@@ -146,8 +146,9 @@ class _StatRow extends StatelessWidget {
           if (!showBar) {
             return header;
           }
-          final progress = normalized.clamp(0.0, 1.0) as double;
-          final background = theme.colorScheme.surfaceVariant.withOpacity(0.6);
+          final progress = normalized.clamp(0.0, 1.0);
+          final background = theme.colorScheme.surfaceContainerHighest
+              .withOpacity(0.6);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -224,7 +225,8 @@ class _TypeMatchupSection extends StatelessWidget {
             ),
           );
         } else {
-          final summary = snapshot.data ??
+          final summary =
+              snapshot.data ??
               const TypeMatchupSummary(
                 weaknesses: <TypeEffectivenessEntry>[],
                 resistances: <TypeEffectivenessEntry>[],
@@ -281,10 +283,7 @@ class _TypeMatchupSection extends StatelessWidget {
 }
 
 class _EffectivenessGroup extends StatelessWidget {
-  const _EffectivenessGroup({
-    required this.title,
-    required this.entries,
-  });
+  const _EffectivenessGroup({required this.title, required this.entries});
 
   final String title;
   final List<TypeEffectivenessEntry> entries;

@@ -165,7 +165,7 @@ class _PokemonCatalogPageState extends State<PokemonCatalogPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<CatalogSort>(
-                  value: _sort,
+                  initialValue: _sort,
                   decoration: const InputDecoration(
                     labelText: 'Sort by',
                     border: OutlineInputBorder(),
@@ -657,7 +657,7 @@ class _PokemonListTile extends StatelessWidget {
     final tileColor = isSelected
         ? theme.colorScheme.primaryContainer.withOpacity(0.35)
         : (isSelectionMode
-              ? theme.colorScheme.surfaceVariant.withOpacity(0.25)
+              ? theme.colorScheme.surfaceContainerHighest.withOpacity(0.25)
               : null);
 
     final textColor = isSelected ? theme.colorScheme.onPrimaryContainer : null;
@@ -713,10 +713,7 @@ class _PokemonListTile extends StatelessWidget {
 }
 
 class _CatalogLeadingSprite extends StatelessWidget {
-  const _CatalogLeadingSprite({
-    required this.pokemon,
-    required this.textStyle,
-  });
+  const _CatalogLeadingSprite({required this.pokemon, required this.textStyle});
 
   final PokemonEntity pokemon;
   final TextStyle? textStyle;

@@ -216,7 +216,15 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 ---
 
-## 10. Future Versions (v2+)
+## 10. Post-MVP (v1.1) Backlog
+
+The following items capture user feedback gathered after the initial demo. They are out of scope for the v1 launch but should be prioritised for the first post-MVP release.
+
+- Support adding duplicates of the same Pokémon on a single team (relax species clause logic while preserving closed-mode validation options).
+- Surface evolution chains and alternate forms (regional variants, mega evolutions, etc.) on the detail page with deep links between related entries.
+- Allow opening a Pokémon detail sheet without leaving selection flows (e.g., while multi-selecting in the catalog or comparison list).
+
+## 11. Future Versions (v2+)
 
 - Add abilities, items, held items, natures.
 - Full battle simulation (damage formula, turn engine).
@@ -227,7 +235,7 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 ---
 
-## 11. Risks & Mitigations
+## 12. Risks & Mitigations
 
 | Risk                | Mitigation                                                          |
 | ------------------- | ------------------------------------------------------------------- |
@@ -239,7 +247,7 @@ Assume: IV = 15, EV = 0, Neutral Nature (×1.0 multiplier).
 
 ---
 
-## 12. Next Steps
+## 13. Next Steps
 
 1. Create Flutter repo with skeleton architecture (data → domain → UI layers).
 2. Implement PokeAPI client with caching and version group mapping.

@@ -105,3 +105,9 @@ erDiagram
 - Enforce `flutter analyze`, `dart test`, and `integration_test` suites in CI; add golden tests for high-value screens and contract tests for domain services.
 - Maintain deterministic test fixtures by snapshotting PokeAPI CSV imports; integration tests run against those fixtures to guarantee stability.
 - Increment schema versions via migrations; include regression tests for data migrations to protect cached user teams and packs.
+
+## Post-MVP (v1.1) Targets
+Feedback from target users highlights a short list of features to queue immediately after the v1 release. They do not alter the current milestone plan but should influence backlog grooming:
+- Allow duplicate Pokémon selections within a single team roster while keeping closed-mode restrictions configurable.
+- Surface evolution chains, regional variants, and alternate forms directly on the detail page with deep links between related entries.
+- Provide in-context access to the detail page during comparison or selection flows so users can inspect stats without leaving their current task.

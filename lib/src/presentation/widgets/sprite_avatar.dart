@@ -20,7 +20,8 @@ class SpriteAvatar extends StatelessWidget {
     final placeholder = CircleAvatar(
       radius: size / 2,
       backgroundColor:
-          backgroundColor ?? theme.colorScheme.surfaceVariant.withOpacity(0.6),
+          backgroundColor ??
+          theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
       child: Text(
         pokemon.name.isEmpty ? '?' : pokemon.name[0].toUpperCase(),
         style: theme.textTheme.labelLarge,

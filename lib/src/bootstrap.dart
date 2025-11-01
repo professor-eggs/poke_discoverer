@@ -13,7 +13,7 @@ import 'data/repositories/data_source_snapshot_repository.dart';
 import 'data/services/pokeapi_csv_ingestion_service.dart';
 import 'data/services/pokemon_catalog_service.dart';
 import 'data/services/pokemon_csv_loader.dart';
-import 'data/services/pokemon_csv_parser.dart';
+import 'data/services/pokemon_stat_calculator.dart';
 import 'data/services/type_matchup_service.dart';
 import 'data/sources/data_source_snapshot_store.dart';
 import 'data/sources/pokemon_cache_store.dart';
@@ -40,6 +40,7 @@ class AppDependencies {
     required this.snapshotRepository,
     required this.csvLoader,
     required this.typeMatchupService,
+    required this.statCalculator,
   });
 
   final PokemonCacheStore cacheStore;
@@ -47,6 +48,7 @@ class AppDependencies {
   final DataSourceSnapshotRepository snapshotRepository;
   final CsvLoader csvLoader;
   final TypeMatchupService typeMatchupService;
+  final PokemonStatCalculator statCalculator;
 
   factory AppDependencies.empty() {
     const cacheStore = _NoopCacheStore();
@@ -60,6 +62,7 @@ class AppDependencies {
       snapshotRepository: snapshotRepository,
       csvLoader: _NoopCsvLoader(),
       typeMatchupService: const _NoopTypeMatchupService(),
+      statCalculator: const PokemonStatCalculator(),
     );
   }
 }
@@ -127,6 +130,7 @@ Future<AppDependencies> initializeDependencies({
     snapshotRepository: snapshotRepository,
     csvLoader: csvLoader,
     typeMatchupService: CsvTypeMatchupService(csvLoader: csvLoader),
+    statCalculator: const PokemonStatCalculator(),
   );
 }
 
@@ -134,13 +138,7 @@ Future<CsvLoader> _createLoader() async {
   if (kIsWeb) {
     return createCsvLoader(assetRoot: 'assets/pokeapi/csv');
   }
-  final root = p.join(
-    'data',
-    'pokeapi-master',
-    'data',
-    'v2',
-    'csv',
-  );
+  final root = p.join('data', 'pokeapi-master', 'data', 'v2', 'csv');
   return createCsvLoader(filesystemRoot: root);
 }
 
