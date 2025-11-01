@@ -121,26 +121,28 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-  await tester.tap(find.byType(Checkbox).first);
-  await tester.pumpAndSettle();
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
 
-  expect(find.text('1 selected'), findsOneWidget);
-  final compareButton = tester.widget<FilledButton>(
+    expect(find.text('1 selected'), findsOneWidget);
+    final compareButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Compare (1)'),
     );
     expect(compareButton.onPressed, isNull);
     expect(find.text('#001 Bulbasaur'), findsOneWidget);
   });
 
-  testWidgets('Catalog renders sprite avatars for each Pokemon', (tester) async {
+  testWidgets('Catalog renders sprite avatars for each Pokemon', (
+    tester,
+  ) async {
     final pokemon = _samplePokemon();
     _arrangeCatalogDependencies(pokemon);
 
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-  expect(find.byType(SpriteAvatar), findsNWidgets(pokemon.length));
-});
+    expect(find.byType(SpriteAvatar), findsNWidgets(pokemon.length));
+  });
 
   testWidgets('Opens detail while selection is active', (tester) async {
     final pokemon = _samplePokemon();
@@ -177,12 +179,15 @@ void main() {
     await tester.tap(find.text('Speed').last);
     await tester.pumpAndSettle();
 
-    final bulbasaurTop =
-        tester.getTopLeft(find.byKey(const ValueKey('pokemon-1'))).dy;
-    final charmanderTop =
-        tester.getTopLeft(find.byKey(const ValueKey('pokemon-4'))).dy;
-    final squirtleTop =
-        tester.getTopLeft(find.byKey(const ValueKey('pokemon-7'))).dy;
+    final bulbasaurTop = tester
+        .getTopLeft(find.byKey(const ValueKey('pokemon-1')))
+        .dy;
+    final charmanderTop = tester
+        .getTopLeft(find.byKey(const ValueKey('pokemon-4')))
+        .dy;
+    final squirtleTop = tester
+        .getTopLeft(find.byKey(const ValueKey('pokemon-7')))
+        .dy;
 
     expect(squirtleTop, lessThan(bulbasaurTop));
     expect(bulbasaurTop, lessThan(charmanderTop));
@@ -190,12 +195,15 @@ void main() {
     await tester.tap(find.byTooltip('Ascending'));
     await tester.pumpAndSettle();
 
-    final bulbasaurDesc =
-        tester.getTopLeft(find.byKey(const ValueKey('pokemon-1'))).dy;
-    final charmanderDesc =
-        tester.getTopLeft(find.byKey(const ValueKey('pokemon-4'))).dy;
-    final squirtleDesc =
-        tester.getTopLeft(find.byKey(const ValueKey('pokemon-7'))).dy;
+    final bulbasaurDesc = tester
+        .getTopLeft(find.byKey(const ValueKey('pokemon-1')))
+        .dy;
+    final charmanderDesc = tester
+        .getTopLeft(find.byKey(const ValueKey('pokemon-4')))
+        .dy;
+    final squirtleDesc = tester
+        .getTopLeft(find.byKey(const ValueKey('pokemon-7')))
+        .dy;
 
     expect(charmanderDesc, lessThan(bulbasaurDesc));
     expect(bulbasaurDesc, lessThan(squirtleDesc));
@@ -205,27 +213,29 @@ void main() {
     final pokemon = _samplePokemon();
     _arrangeCatalogDependencies(pokemon);
 
-  await tester.pumpWidget(
-    MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4])),
-  );
-  await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4])),
+    );
+    await tester.pumpAndSettle();
 
-  expect(find.text('Compare (2)'), findsOneWidget);
-  expect(find.byType(DataTable), findsOneWidget);
-  expect(find.text('Base stat total'), findsWidgets);
-  expect(find.byType(DataTable), findsOneWidget);
-  expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.text('Compare (2)'), findsOneWidget);
+    expect(find.byType(DataTable), findsOneWidget);
+    expect(find.text('Base stat total'), findsWidgets);
+    expect(find.byType(DataTable), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
 
-  final scrollable = find.byType(Scrollable).first;
-  await tester.fling(scrollable, const Offset(0, -600), 1000);
-  await tester.pumpAndSettle();
+    final scrollable = find.byType(Scrollable).first;
+    await tester.fling(scrollable, const Offset(0, -600), 1000);
+    await tester.pumpAndSettle();
 
-  expect(find.text('Team coverage'), findsOneWidget);
-  expect(find.text('Needs coverage'), findsOneWidget);
-  expect(find.text('Covered by team'), findsOneWidget);
-});
+    expect(find.text('Team coverage'), findsOneWidget);
+    expect(find.text('Needs coverage'), findsOneWidget);
+    expect(find.text('Covered by team'), findsOneWidget);
+  });
 
-  testWidgets('Computed stats mode recalculates totals by level', (tester) async {
+  testWidgets('Computed stats mode recalculates totals by level', (
+    tester,
+  ) async {
     final pokemon = _samplePokemon();
     _arrangeCatalogDependencies(pokemon);
 
@@ -235,7 +245,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Computed'));
-  await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
     if (kLevelControlMode == LevelControlMode.buttonCluster) {
       expect(find.text('Level 50'), findsWidgets);
@@ -268,8 +278,8 @@ void main() {
       await tester.enterText(inputField, '65');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
-    expect(find.textContaining('Level 65'), findsOneWidget);
-  }
+      expect(find.textContaining('Level 65'), findsOneWidget);
+    }
   });
 }
 
@@ -442,14 +452,22 @@ class _FakeTypeMatchupService implements TypeMatchupService {
 
     for (final summary in summaries) {
       for (final entry in summary.weaknesses) {
-        weaknessCount.update(entry.type, (value) => value + 1, ifAbsent: () => 1);
+        weaknessCount.update(
+          entry.type,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
         final current = weaknessMax[entry.type];
         if (current == null || entry.multiplier > current) {
           weaknessMax[entry.type] = entry.multiplier;
         }
       }
       for (final entry in summary.resistances) {
-        resistanceCount.update(entry.type, (value) => value + 1, ifAbsent: () => 1);
+        resistanceCount.update(
+          entry.type,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
         final current = resistanceMin[entry.type];
         if (current == null || entry.multiplier < current) {
           resistanceMin[entry.type] = entry.multiplier;
@@ -479,22 +497,22 @@ class _FakeTypeMatchupService implements TypeMatchupService {
       }
     });
 
-    final resistances = resistanceMin.entries
-        .map(
-          (entry) => TypeEffectivenessEntry(
-            type: entry.key,
-            multiplier: entry.value,
-          ),
-        )
-        .toList(growable: false)
-      ..sort((a, b) => a.multiplier.compareTo(b.multiplier));
+    final resistances =
+        resistanceMin.entries
+            .map(
+              (entry) => TypeEffectivenessEntry(
+                type: entry.key,
+                multiplier: entry.value,
+              ),
+            )
+            .toList(growable: false)
+          ..sort((a, b) => a.multiplier.compareTo(b.multiplier));
 
-    final immunities = immunityTypes
-        .map(
-          (type) => TypeEffectivenessEntry(type: type, multiplier: 0),
-        )
-        .toList(growable: false)
-      ..sort((a, b) => a.type.compareTo(b.type));
+    final immunities =
+        immunityTypes
+            .map((type) => TypeEffectivenessEntry(type: type, multiplier: 0))
+            .toList(growable: false)
+          ..sort((a, b) => a.type.compareTo(b.type));
 
     sharedWeaknesses.sort((a, b) => b.multiplier.compareTo(a.multiplier));
     uncoveredWeaknesses.sort((a, b) => b.multiplier.compareTo(a.multiplier));
