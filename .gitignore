@@ -51,4 +51,3 @@ app.*.map.json
 
 
 /data
-/assets/**/*.csv

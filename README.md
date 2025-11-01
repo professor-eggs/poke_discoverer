@@ -50,6 +50,16 @@ will be added as part of the phased delivery plan captured in `docs/erd-and-mile
 - Native/Desktop: `flutter run`
 - Web (Edge/Chrome): `flutter run -d edge`
 
+
 Use the catalog screen’s “Seed data snapshot” action to import CSV data into SQLite on demand.
 When running on the web the ingestion service reads from the bundled asset CSVs; on desktop it
 reads directly from `data/pokeapi-master/data/v2/csv/`.
+
+---
+
+## Data Source & License
+
+This app uses Pokémon data in CSV format from the [PokéAPI project](https://github.com/PokeAPI/pokeapi),
+which is made available under the MIT License. See the [PokéAPI GitHub repository](https://github.com/PokeAPI/pokeapi) for details.
+
+All Pokémon data and CSVs included in this repository are © PokéAPI contributors and used under the terms of the MIT License.
