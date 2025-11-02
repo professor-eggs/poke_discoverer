@@ -355,6 +355,34 @@ void main() {
     expect(find.text('All cards using level 100.'), findsOneWidget);
   });
 
+  testWidgets('Preset dropdown updates stat summary', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4, 7])),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Computed'));
+    await tester.pumpAndSettle();
+
+    final presetDropdown =
+        find.byKey(const ValueKey('presetDropdown-1')).first;
+    await tester.ensureVisible(presetDropdown);
+    await tester.tap(presetDropdown);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Physical sweeper').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Phys. Sweep'), findsWidgets);
+    expect(
+      find.text('+Atk / max Speed EVs, Adamant nature.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Comparison page surfaces missing data banner and seeds cache', (
     tester,
   ) async {

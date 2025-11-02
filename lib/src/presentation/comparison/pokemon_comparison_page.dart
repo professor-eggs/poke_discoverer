@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../bootstrap.dart'
     show AppDependencies, appDependencies, initializeDependencies;
 import '../../data/models/pokemon_models.dart';
+import '../../data/services/pokemon_stat_calculator.dart';
 import '../../data/services/type_matchup_service.dart';
 import '../detail/pokemon_detail_page.dart';
 import '../widgets/sprite_avatar.dart';
@@ -51,6 +52,92 @@ void resetInitializeComparisonDependencies() {
   initializeComparisonDependencies = initializeDependencies;
 }
 
+enum StatPreset {
+  neutral,
+  physicalSweeper,
+  specialSweeper,
+  physicalWall,
+  specialWall
+}
+
+extension StatPresetData on StatPreset {
+  String get label {
+    switch (this) {
+      case StatPreset.neutral:
+        return 'Neutral';
+      case StatPreset.physicalSweeper:
+        return 'Physical sweeper';
+      case StatPreset.specialSweeper:
+        return 'Special sweeper';
+      case StatPreset.physicalWall:
+        return 'Physical wall';
+      case StatPreset.specialWall:
+        return 'Special wall';
+    }
+  }
+
+  String get shortLabel {
+    switch (this) {
+      case StatPreset.neutral:
+        return 'Neutral';
+      case StatPreset.physicalSweeper:
+        return 'Phys. Sweep';
+      case StatPreset.specialSweeper:
+        return 'Sp. Sweep';
+      case StatPreset.physicalWall:
+        return 'Phys. Wall';
+      case StatPreset.specialWall:
+        return 'Sp. Wall';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case StatPreset.neutral:
+        return 'No EV investment, neutral nature.';
+      case StatPreset.physicalSweeper:
+        return '+Atk / max Speed EVs, Adamant nature.';
+      case StatPreset.specialSweeper:
+        return '+Sp. Atk / max Speed EVs, Modest nature.';
+      case StatPreset.physicalWall:
+        return '+Def / max HP EVs, Impish nature.';
+      case StatPreset.specialWall:
+        return '+Sp. Def / max HP EVs, Careful nature.';
+    }
+  }
+
+  StatCalculationProfile get profile {
+    switch (this) {
+      case StatPreset.neutral:
+        return const StatCalculationProfile(individualValue: 31);
+      case StatPreset.physicalSweeper:
+        return const StatCalculationProfile(
+          individualValue: 31,
+          effortValues: <String, int>{'atk': 252, 'spe': 252, 'hp': 4},
+          natureMultipliers: <String, double>{'atk': 1.1, 'spa': 0.9},
+        );
+      case StatPreset.specialSweeper:
+        return const StatCalculationProfile(
+          individualValue: 31,
+          effortValues: <String, int>{'spa': 252, 'spe': 252, 'hp': 4},
+          natureMultipliers: <String, double>{'spa': 1.1, 'atk': 0.9},
+        );
+      case StatPreset.physicalWall:
+        return const StatCalculationProfile(
+          individualValue: 31,
+          effortValues: <String, int>{'hp': 252, 'def': 252, 'spd': 4},
+          natureMultipliers: <String, double>{'def': 1.1, 'atk': 0.9},
+        );
+      case StatPreset.specialWall:
+        return const StatCalculationProfile(
+          individualValue: 31,
+          effortValues: <String, int>{'hp': 252, 'spd': 252, 'def': 4},
+          natureMultipliers: <String, double>{'spd': 1.1, 'atk': 0.9},
+        );
+    }
+  }
+}
+
 String? _statKeyForSort(ComparisonSort sort) {
   switch (sort) {
     case ComparisonSort.hp:
@@ -87,6 +174,7 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
   bool _sortAscending = true;
   StatDisplayMode _statMode = StatDisplayMode.base;
   final Map<int, int> _levels = <int, int>{};
+  final Map<int, StatPreset> _presets = <int, StatPreset>{};
   bool _isSeeding = false;
   String? _seedError;
 
@@ -145,6 +233,12 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
                 }
               });
             },
+            presets: _presets,
+            onPresetChanged: (pokemonId, preset) {
+              setState(() {
+                _presets[pokemonId] = preset;
+              });
+            },
             missingIds: missingIds,
             isSeeding: _isSeeding,
             seedError: _seedError,
@@ -158,6 +252,7 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
   void _ensureLevels(List<PokemonEntity> pokemon) {
     for (final entity in pokemon) {
       _levels.putIfAbsent(entity.id, () => 50);
+      _presets.putIfAbsent(entity.id, () => StatPreset.neutral);
     }
   }
 
@@ -202,6 +297,7 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
       );
       appDependencies = refreshed;
       _levels.clear();
+      _presets.clear();
       setState(() {
         _pokemonFuture = appDependencies.catalogService.getPokemonByIds(
           widget.pokemonIds,
@@ -233,6 +329,8 @@ class _ComparisonView extends StatelessWidget {
     required this.levels,
     required this.onLevelChanged,
     required this.onApplyLevelToAll,
+    required this.presets,
+    required this.onPresetChanged,
     required this.missingIds,
     required this.isSeeding,
     required this.seedError,
@@ -249,6 +347,8 @@ class _ComparisonView extends StatelessWidget {
   final Map<int, int> levels;
   final void Function(int pokemonId, int level) onLevelChanged;
   final ValueChanged<int> onApplyLevelToAll;
+  final Map<int, StatPreset> presets;
+  final void Function(int pokemonId, StatPreset preset) onPresetChanged;
   final List<int> missingIds;
   final bool isSeeding;
   final String? seedError;
@@ -265,7 +365,12 @@ class _ComparisonView extends StatelessWidget {
 
     Map<String, int> computedStatsFor(PokemonEntity entity) {
       final level = levels[entity.id] ?? 50;
-      return calculator.computeStats(pokemon: entity, level: level);
+      final preset = presets[entity.id] ?? StatPreset.neutral;
+      return calculator.computeStats(
+        pokemon: entity,
+        level: level,
+        profile: preset.profile,
+      );
     }
 
     for (final entity in pokemon) {
@@ -461,9 +566,10 @@ class _ComparisonView extends StatelessWidget {
               final total = totalsByPokemon[entity.id] ?? 0;
               final isBest = maxTotal != null && total == maxTotal;
               final level = levels[entity.id] ?? 50;
+              final preset = presets[entity.id] ?? StatPreset.neutral;
               final statLabel = statMode == StatDisplayMode.base
                   ? 'Base stat total'
-                  : 'Lv $level total';
+                  : 'Lv $level total · ${preset.shortLabel}';
               return _PokemonSummaryCard(
                 pokemon: entity,
                 statTotal: total,
@@ -474,6 +580,9 @@ class _ComparisonView extends StatelessWidget {
                 mode: kLevelControlMode,
                 onLevelChanged: (newLevel) =>
                     onLevelChanged(entity.id, newLevel),
+                preset: preset,
+                onPresetChanged: (newPreset) =>
+                    onPresetChanged(entity.id, newPreset),
               );
             },
           ),
@@ -623,6 +732,8 @@ class _PokemonSummaryCard extends StatelessWidget {
     required this.showLevelControls,
     required this.mode,
     required this.onLevelChanged,
+    required this.preset,
+    required this.onPresetChanged,
   });
 
   final PokemonEntity pokemon;
@@ -633,6 +744,8 @@ class _PokemonSummaryCard extends StatelessWidget {
   final bool showLevelControls;
   final LevelControlMode mode;
   final ValueChanged<int> onLevelChanged;
+  final StatPreset preset;
+  final ValueChanged<StatPreset> onPresetChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -729,6 +842,37 @@ class _PokemonSummaryCard extends StatelessWidget {
                     mode: mode,
                     level: level,
                     onLevelChanged: onLevelChanged,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Battle role',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  DropdownButton<StatPreset>(
+                    key: ValueKey('presetDropdown-${pokemon.id}'),
+                    value: preset,
+                    isExpanded: true,
+                    items: StatPreset.values
+                        .map(
+                          (option) => DropdownMenuItem<StatPreset>(
+                            value: option,
+                            child: Text(option.label),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value != null) {
+                        onPresetChanged(value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    preset.description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
                 if (defaultForm.types.isNotEmpty) ...[
@@ -895,14 +1039,14 @@ class _GlobalLevelControlState extends State<_GlobalLevelControl> {
     final theme = Theme.of(context);
     final sharedLevel = widget.sharedLevel;
     final status = sharedLevel == null
-        ? 'Levels vary across Pokémon.'
+        ? 'Levels vary across Pokemon.'
         : 'All cards using level $sharedLevel.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Set level for all compared Pokémon',
+          'Set level for all compared Pokemon',
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 8),
