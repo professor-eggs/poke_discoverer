@@ -138,6 +138,13 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
                 _levels[pokemonId] = level.clamp(1, 100);
               });
             },
+            onApplyLevelToAll: (level) {
+              setState(() {
+                for (final entity in ordered) {
+                  _levels[entity.id] = level.clamp(1, 100);
+                }
+              });
+            },
             missingIds: missingIds,
             isSeeding: _isSeeding,
             seedError: _seedError,
@@ -225,6 +232,7 @@ class _ComparisonView extends StatelessWidget {
     required this.onStatModeChanged,
     required this.levels,
     required this.onLevelChanged,
+    required this.onApplyLevelToAll,
     required this.missingIds,
     required this.isSeeding,
     required this.seedError,
@@ -240,6 +248,7 @@ class _ComparisonView extends StatelessWidget {
   final ValueChanged<StatDisplayMode> onStatModeChanged;
   final Map<int, int> levels;
   final void Function(int pokemonId, int level) onLevelChanged;
+  final ValueChanged<int> onApplyLevelToAll;
   final List<int> missingIds;
   final bool isSeeding;
   final String? seedError;
@@ -331,6 +340,17 @@ class _ComparisonView extends StatelessWidget {
       );
     }
 
+    int? sharedLevel;
+    if (sortedPokemon.isNotEmpty) {
+      final baseline = levels[sortedPokemon.first.id] ?? 50;
+      final allSame = sortedPokemon.every(
+        (entity) => (levels[entity.id] ?? 50) == baseline,
+      );
+      if (allSame) {
+        sharedLevel = baseline;
+      }
+    }
+
     final totals = sortedPokemon
         .map((entity) => totalsByPokemon[entity.id] ?? 0)
         .toList(growable: false);
@@ -419,6 +439,13 @@ class _ComparisonView extends StatelessWidget {
                   }
                 },
               ),
+              if (statMode == StatDisplayMode.computed) ...[
+                const SizedBox(height: 16),
+                _GlobalLevelControl(
+                  sharedLevel: sharedLevel,
+                  onApply: onApplyLevelToAll,
+                ),
+              ],
             ],
           ),
         ),
@@ -802,6 +829,159 @@ class _MatchupRow extends StatelessWidget {
         '$label $items$overflowLabel',
         style: theme.textTheme.bodySmall,
       ),
+    );
+  }
+}
+
+class _GlobalLevelControl extends StatefulWidget {
+  const _GlobalLevelControl({
+    required this.sharedLevel,
+    required this.onApply,
+  });
+
+  final int? sharedLevel;
+  final ValueChanged<int> onApply;
+
+  @override
+  State<_GlobalLevelControl> createState() => _GlobalLevelControlState();
+}
+
+class _GlobalLevelControlState extends State<_GlobalLevelControl> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _syncText();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GlobalLevelControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sharedLevel != widget.sharedLevel) {
+      _syncText();
+    }
+  }
+
+  void _syncText() {
+    final value = widget.sharedLevel;
+    _controller.text = value?.toString() ?? '';
+  }
+
+  void _applyLevel(int level) {
+    final clamped = level.clamp(1, 100);
+    _controller.text = clamped.toString();
+    widget.onApply(clamped);
+  }
+
+  void _handleSubmit(String value) {
+    final parsed = int.tryParse(value);
+    if (parsed == null) {
+      _syncText();
+      return;
+    }
+    _applyLevel(parsed);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sharedLevel = widget.sharedLevel;
+    final status = sharedLevel == null
+        ? 'Levels vary across Pokémon.'
+        : 'All cards using level $sharedLevel.';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Set level for all compared Pokémon',
+          style: theme.textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 96,
+              child: TextField(
+                key: const Key('comparisonGlobalLevelField'),
+                controller: _controller,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onSubmitted: _handleSubmit,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  labelText: 'Level',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _PresetLevelButton(
+                    key: const Key('comparisonGlobalPreset50'),
+                    label: '50',
+                    onPressed: () => _applyLevel(50),
+                  ),
+                  _PresetLevelButton(
+                    key: const Key('comparisonGlobalPreset100'),
+                    label: '100',
+                    onPressed: () => _applyLevel(100),
+                  ),
+                  _PresetLevelButton(
+                    key: const Key('comparisonGlobalPreset75'),
+                    label: '75',
+                    onPressed: () => _applyLevel(75),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          status,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PresetLevelButton extends StatelessWidget {
+  const _PresetLevelButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      child: Text('Lv $label'),
     );
   }
 }

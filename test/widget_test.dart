@@ -320,8 +320,39 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Weak to'), findsWidgets);
-    expect(find.textContaining('Fire x2'), findsWidgets);
-    expect(find.textContaining('Water x0.5'), findsWidgets);
+    expect(find.textContaining('Weak to Fire x2'), findsWidgets);
+    expect(find.textContaining('Resists Water x0.5'), findsWidgets);
+  });
+
+  testWidgets('Global level control updates all cards', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4, 7])),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Computed'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('All cards using level 50.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('comparisonGlobalLevelField')),
+      '60',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Level 60'), findsNWidgets(3));
+    expect(find.text('All cards using level 60.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('comparisonGlobalPreset100')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Level 100'), findsNWidgets(3));
+    expect(find.text('All cards using level 100.'), findsOneWidget);
   });
 
   testWidgets('Comparison page surfaces missing data banner and seeds cache', (
