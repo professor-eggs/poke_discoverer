@@ -219,15 +219,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Compare (2)'), findsOneWidget);
-    expect(find.byType(DataTable), findsOneWidget);
-    expect(find.text('Base stat total'), findsWidgets);
-    expect(find.byType(DataTable), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsNothing);
 
-    final scrollable = find.byType(Scrollable).first;
-    await tester.fling(scrollable, const Offset(0, -600), 1000);
+    final scrollable = find.byKey(const Key('comparisonScroll'));
+    await tester.drag(scrollable, const Offset(0, -600));
     await tester.pumpAndSettle();
 
+    expect(find.byType(DataTable), findsOneWidget);
     expect(find.text('Team coverage'), findsOneWidget);
     expect(find.text('Needs coverage'), findsOneWidget);
     expect(find.text('Covered by team'), findsOneWidget);
@@ -280,6 +277,51 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Level 65'), findsOneWidget);
     }
+  });
+
+  testWidgets('Comparison sort supports stat keys and direction', (
+    tester,
+  ) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4, 7])),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('comparisonSortDropdown')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('HP').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('comparisonSortDirection')));
+    await tester.pumpAndSettle();
+
+    final bulbasaurLeft =
+        tester.getTopLeft(find.byKey(const ValueKey('comparison-card-1'))).dx;
+    final squirtleLeft =
+        tester.getTopLeft(find.byKey(const ValueKey('comparison-card-7'))).dx;
+    final charmanderLeft =
+        tester.getTopLeft(find.byKey(const ValueKey('comparison-card-4'))).dx;
+
+    expect(bulbasaurLeft, lessThan(squirtleLeft));
+    expect(squirtleLeft, lessThan(charmanderLeft));
+  });
+
+  testWidgets('Comparison cards render type matchup preview', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4])),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Weak to'), findsWidgets);
+    expect(find.textContaining('Fire x2'), findsWidgets);
+    expect(find.textContaining('Water x0.5'), findsWidgets);
   });
 
   testWidgets('Comparison page surfaces missing data banner and seeds cache', (

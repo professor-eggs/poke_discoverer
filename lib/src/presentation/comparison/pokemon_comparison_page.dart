@@ -19,8 +19,19 @@ const Map<String, String> _kStatLabels = <String, String>{
   'spd': 'Sp. Defense',
   'spe': 'Speed',
 };
+const Map<ComparisonSort, String> _kSortLabels = <ComparisonSort, String>{
+  ComparisonSort.dex: 'Dex number',
+  ComparisonSort.name: 'Name',
+  ComparisonSort.total: 'Stat total',
+  ComparisonSort.hp: 'HP',
+  ComparisonSort.atk: 'Attack',
+  ComparisonSort.def: 'Defense',
+  ComparisonSort.spa: 'Sp. Attack',
+  ComparisonSort.spd: 'Sp. Defense',
+  ComparisonSort.spe: 'Speed',
+};
 
-enum ComparisonSort { dex, name, total }
+enum ComparisonSort { dex, name, total, hp, atk, def, spa, spd, spe }
 
 enum StatDisplayMode { base, computed }
 
@@ -40,6 +51,27 @@ void resetInitializeComparisonDependencies() {
   initializeComparisonDependencies = initializeDependencies;
 }
 
+String? _statKeyForSort(ComparisonSort sort) {
+  switch (sort) {
+    case ComparisonSort.hp:
+      return 'hp';
+    case ComparisonSort.atk:
+      return 'atk';
+    case ComparisonSort.def:
+      return 'def';
+    case ComparisonSort.spa:
+      return 'spa';
+    case ComparisonSort.spd:
+      return 'spd';
+    case ComparisonSort.spe:
+      return 'spe';
+    case ComparisonSort.dex:
+    case ComparisonSort.name:
+    case ComparisonSort.total:
+      return null;
+  }
+}
+
 class PokemonComparisonPage extends StatefulWidget {
   const PokemonComparisonPage({super.key, required this.pokemonIds});
 
@@ -52,6 +84,7 @@ class PokemonComparisonPage extends StatefulWidget {
 class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
   late Future<List<PokemonEntity>> _pokemonFuture;
   ComparisonSort _sort = ComparisonSort.dex;
+  bool _sortAscending = true;
   StatDisplayMode _statMode = StatDisplayMode.base;
   final Map<int, int> _levels = <int, int>{};
   bool _isSeeding = false;
@@ -90,7 +123,11 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
           return _ComparisonView(
             pokemon: ordered,
             sort: _sort,
+            sortAscending: _sortAscending,
             onSortChanged: (value) => setState(() => _sort = value),
+            onSortAscendingChanged: (ascending) {
+              setState(() => _sortAscending = ascending);
+            },
             statMode: _statMode,
             onStatModeChanged: (mode) {
               setState(() => _statMode = mode);
@@ -181,7 +218,9 @@ class _ComparisonView extends StatelessWidget {
   const _ComparisonView({
     required this.pokemon,
     required this.sort,
+    required this.sortAscending,
     required this.onSortChanged,
+    required this.onSortAscendingChanged,
     required this.statMode,
     required this.onStatModeChanged,
     required this.levels,
@@ -194,7 +233,9 @@ class _ComparisonView extends StatelessWidget {
 
   final List<PokemonEntity> pokemon;
   final ComparisonSort sort;
+  final bool sortAscending;
   final ValueChanged<ComparisonSort> onSortChanged;
+  final ValueChanged<bool> onSortAscendingChanged;
   final StatDisplayMode statMode;
   final ValueChanged<StatDisplayMode> onStatModeChanged;
   final Map<int, int> levels;
@@ -207,6 +248,8 @@ class _ComparisonView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final calculator = appDependencies.statCalculator;
+    final statsByPokemon = <int, Map<String, int>>{};
+    final totalsByPokemon = <int, int>{};
 
     Map<String, int> baseStatsFor(PokemonEntity entity) =>
         _baseStatsFor(entity);
@@ -216,31 +259,52 @@ class _ComparisonView extends StatelessWidget {
       return calculator.computeStats(pokemon: entity, level: level);
     }
 
-    int totalFor(PokemonEntity entity, StatDisplayMode mode) {
-      final stats = mode == StatDisplayMode.base
+    for (final entity in pokemon) {
+      final stats = statMode == StatDisplayMode.base
           ? baseStatsFor(entity)
           : computedStatsFor(entity);
-      return stats.values.fold<int>(0, (sum, value) => sum + value);
+      statsByPokemon[entity.id] = stats;
+      totalsByPokemon[entity.id] =
+          stats.values.fold<int>(0, (sum, value) => sum + value);
     }
 
     final sortedPokemon = List<PokemonEntity>.from(pokemon);
-    switch (sort) {
-      case ComparisonSort.dex:
-        sortedPokemon.sort((a, b) => a.id.compareTo(b.id));
-        break;
-      case ComparisonSort.name:
-        sortedPokemon.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-        break;
-      case ComparisonSort.total:
-        sortedPokemon.sort((a, b) {
-          final diff = totalFor(b, statMode).compareTo(totalFor(a, statMode));
-          if (diff != 0) return diff;
+    final statSortKey = _statKeyForSort(sort);
+
+    int compareBySort(PokemonEntity a, PokemonEntity b) {
+      if (statSortKey != null) {
+        final aValue = statsByPokemon[a.id]?[statSortKey] ?? 0;
+        final bValue = statsByPokemon[b.id]?[statSortKey] ?? 0;
+        return aValue.compareTo(bValue);
+      }
+      switch (sort) {
+        case ComparisonSort.dex:
           return a.id.compareTo(b.id);
-        });
-        break;
+        case ComparisonSort.name:
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        case ComparisonSort.total:
+          final aTotal = totalsByPokemon[a.id] ?? 0;
+          final bTotal = totalsByPokemon[b.id] ?? 0;
+          return aTotal.compareTo(bTotal);
+        case ComparisonSort.hp:
+        case ComparisonSort.atk:
+        case ComparisonSort.def:
+        case ComparisonSort.spa:
+        case ComparisonSort.spd:
+        case ComparisonSort.spe:
+          // Covered by statSortKey branch.
+          return 0;
+      }
     }
+
+    final direction = sortAscending ? 1 : -1;
+    sortedPokemon.sort((a, b) {
+      final result = compareBySort(a, b) * direction;
+      if (result != 0) {
+        return result;
+      }
+      return a.id.compareTo(b.id);
+    });
 
     if (sortedPokemon.isEmpty) {
       return ListView(
@@ -267,25 +331,13 @@ class _ComparisonView extends StatelessWidget {
       );
     }
 
-    final statsByPokemon = <int, Map<String, int>>{};
-    final totalsByPokemon = <int, int>{};
-    for (final entity in sortedPokemon) {
-      final stats = statMode == StatDisplayMode.base
-          ? baseStatsFor(entity)
-          : computedStatsFor(entity);
-      statsByPokemon[entity.id] = stats;
-      totalsByPokemon[entity.id] = stats.values.fold<int>(
-        0,
-        (sum, value) => sum + value,
-      );
-    }
-
     final totals = sortedPokemon
         .map((entity) => totalsByPokemon[entity.id] ?? 0)
         .toList(growable: false);
     final maxTotal = totals.isEmpty ? null : totals.reduce(math.max);
 
     return ListView(
+      key: const Key('comparisonScroll'),
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         if (missingIds.isNotEmpty)
@@ -303,30 +355,50 @@ class _ComparisonView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SegmentedButton<ComparisonSort>(
-                segments: const [
-                  ButtonSegment(
-                    value: ComparisonSort.dex,
-                    label: Text('Dex'),
-                    icon: Icon(Icons.numbers),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<ComparisonSort>(
+                      key: const Key('comparisonSortDropdown'),
+                      value: sort,
+                      decoration: const InputDecoration(
+                        labelText: 'Sort by',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: ComparisonSort.values
+                          .map(
+                            (value) => DropdownMenuItem<ComparisonSort>(
+                              value: value,
+                              child: Text(
+                                _kSortLabels[value] ?? value.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value != null) {
+                          onSortChanged(value);
+                        }
+                      },
+                    ),
                   ),
-                  ButtonSegment(
-                    value: ComparisonSort.name,
-                    label: Text('Name'),
-                    icon: Icon(Icons.sort_by_alpha),
-                  ),
-                  ButtonSegment(
-                    value: ComparisonSort.total,
-                    label: Text('Total'),
-                    icon: Icon(Icons.bar_chart),
+                  const SizedBox(width: 12),
+                  Tooltip(
+                    message: sortAscending ? 'Ascending' : 'Descending',
+                    child: IconButton.filledTonal(
+                      key: const Key('comparisonSortDirection'),
+                      onPressed: () =>
+                          onSortAscendingChanged(!sortAscending),
+                      icon: Icon(
+                        sortAscending
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                      ),
+                    ),
                   ),
                 ],
-                selected: <ComparisonSort>{sort},
-                onSelectionChanged: (selection) {
-                  if (selection.isNotEmpty) {
-                    onSortChanged(selection.first);
-                  }
-                },
               ),
               const SizedBox(height: 16),
               SegmentedButton<StatDisplayMode>(
@@ -351,7 +423,7 @@ class _ComparisonView extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: statMode == StatDisplayMode.computed ? 420 : 280,
+          height: statMode == StatDisplayMode.computed ? 520 : 420,
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             scrollDirection: Axis.horizontal,
@@ -546,6 +618,7 @@ class _PokemonSummaryCard extends StatelessWidget {
     return SizedBox(
       width: 220,
       child: Card(
+        key: ValueKey('comparison-card-${pokemon.id}'),
         clipBehavior: Clip.antiAlias,
         elevation: highlight ? 6 : 2,
         child: InkWell(
@@ -556,7 +629,7 @@ class _PokemonSummaryCard extends StatelessWidget {
               ),
             );
           },
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -631,10 +704,103 @@ class _PokemonSummaryCard extends StatelessWidget {
                     onLevelChanged: onLevelChanged,
                   ),
                 ],
+                if (defaultForm.types.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _TypeMatchupPreview(types: defaultForm.types),
+                ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TypeMatchupPreview extends StatelessWidget {
+  const _TypeMatchupPreview({required this.types});
+
+  final List<String> types;
+
+  @override
+  Widget build(BuildContext context) {
+    if (types.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final theme = Theme.of(context);
+    return FutureBuilder<TypeMatchupSummary>(
+      future: appDependencies.typeMatchupService.defensiveSummary(types),
+      builder: (context, snapshot) {
+        final connection = snapshot.connectionState;
+        if (connection == ConnectionState.waiting ||
+            connection == ConnectionState.active) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: LinearProgressIndicator(minHeight: 2),
+          );
+        }
+        if (snapshot.hasError) {
+          return Text(
+            'Type coverage unavailable.',
+            style: theme.textTheme.bodySmall,
+          );
+        }
+        final summary =
+            snapshot.data ??
+            const TypeMatchupSummary(
+              weaknesses: <TypeEffectivenessEntry>[],
+              resistances: <TypeEffectivenessEntry>[],
+              immunities: <TypeEffectivenessEntry>[],
+            );
+        if (summary.isEmpty) {
+          return Text(
+            'Type coverage unavailable.',
+            style: theme.textTheme.bodySmall,
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (summary.weaknesses.isNotEmpty)
+              _MatchupRow(label: 'Weak to', entries: summary.weaknesses),
+            if (summary.resistances.isNotEmpty)
+              _MatchupRow(label: 'Resists', entries: summary.resistances),
+            if (summary.immunities.isNotEmpty)
+              _MatchupRow(label: 'Immune to', entries: summary.immunities),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MatchupRow extends StatelessWidget {
+  const _MatchupRow({required this.label, required this.entries});
+
+  final String label;
+  final List<TypeEffectivenessEntry> entries;
+
+  static const int _maxVisible = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visible = entries.take(_maxVisible).toList(growable: false);
+    final overflow = entries.length - visible.length;
+
+    final items = visible
+        .map(
+          (entry) =>
+              '${_capitalize(entry.type)} ${_formatMultiplier(entry.multiplier)}',
+        )
+        .join(', ');
+    final overflowLabel = overflow > 0 ? ' (+$overflow more)' : '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        '$label $items$overflowLabel',
+        style: theme.textTheme.bodySmall,
       ),
     );
   }
