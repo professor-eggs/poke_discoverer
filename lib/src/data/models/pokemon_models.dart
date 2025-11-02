@@ -28,6 +28,7 @@ class PokemonFormEntity extends Equatable {
     required this.types,
     required this.stats,
     required this.sprites,
+    required this.moves,
   });
 
   final int id;
@@ -36,12 +37,21 @@ class PokemonFormEntity extends Equatable {
   final List<String> types;
   final List<PokemonStatValue> stats;
   final List<MediaAssetReference> sprites;
+  final List<PokemonMoveSummary> moves;
 
   int? baseStat(String statId) =>
       stats.firstWhereOrNull((stat) => stat.statId == statId)?.baseValue;
 
   @override
-  List<Object?> get props => [id, name, isDefault, types, stats, sprites];
+  List<Object?> get props => [
+        id,
+        name,
+        isDefault,
+        types,
+        stats,
+        sprites,
+        moves,
+      ];
 }
 
 class PokemonStatValue extends Equatable {
@@ -74,6 +84,46 @@ class MediaAssetReference extends Equatable {
 
   @override
   List<Object?> get props => [assetId, kind, localPath, remoteUrl];
+}
+
+class PokemonMoveSummary extends Equatable {
+  const PokemonMoveSummary({
+    required this.moveId,
+    required this.methodId,
+    required this.name,
+    required this.method,
+    required this.type,
+    required this.damageClass,
+    this.level,
+    this.power,
+    this.accuracy,
+    this.pp,
+  });
+
+  final int moveId;
+  final String methodId;
+  final String name;
+  final String method;
+  final String type;
+  final String damageClass;
+  final int? level;
+  final int? power;
+  final int? accuracy;
+  final int? pp;
+
+  @override
+  List<Object?> get props => [
+        moveId,
+        methodId,
+        name,
+        method,
+        type,
+        damageClass,
+        level,
+        power,
+        accuracy,
+        pp,
+      ];
 }
 
 extension _IterableFirstWhereOrNull<E> on Iterable<E> {

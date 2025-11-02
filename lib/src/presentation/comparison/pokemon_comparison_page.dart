@@ -569,7 +569,7 @@ class _ComparisonView extends StatelessWidget {
               final preset = presets[entity.id] ?? StatPreset.neutral;
               final statLabel = statMode == StatDisplayMode.base
                   ? 'Base stat total'
-                  : 'Lv $level total · ${preset.shortLabel}';
+                  : 'Lv $level total (${preset.shortLabel})';
               return _PokemonSummaryCard(
                 pokemon: entity,
                 statTotal: total,

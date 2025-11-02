@@ -32,6 +32,7 @@ void main() {
             ),
           ),
         ],
+        moves: const [],
       ),
     ],
   );
@@ -111,6 +112,7 @@ void main() {
               PokemonStatValue(statId: 'hp', baseValue: 45),
             ],
             sprites: [],
+            moves: const [],
           ),
         ],
       ),

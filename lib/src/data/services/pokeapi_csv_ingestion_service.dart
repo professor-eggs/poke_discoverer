@@ -32,6 +32,15 @@ class PokeapiCsvIngestionService {
     final statLookupRows = await csvLoader.readCsv('stats.csv');
     final pokemonTypesRows = await csvLoader.readCsv('pokemon_types.csv');
     final typeLookupRows = await csvLoader.readCsv('types.csv');
+    final pokemonMovesRows = await csvLoader.readCsv('pokemon_moves.csv');
+    final movesRows = await csvLoader.readCsv('moves.csv');
+    final moveNamesRows = await csvLoader.readCsv('move_names.csv');
+    final moveDamageClassesRows =
+        await csvLoader.readCsv('move_damage_classes.csv');
+    final moveLearnMethodsRows =
+        await csvLoader.readCsv('pokemon_move_methods.csv');
+    final moveLearnMethodProseRows =
+        await csvLoader.readCsv('pokemon_move_method_prose.csv');
 
     final entities = PokemonCsvParser.parse(
       pokemon: pokemonRows,
@@ -39,6 +48,12 @@ class PokeapiCsvIngestionService {
       stats: statLookupRows,
       pokemonTypes: pokemonTypesRows,
       types: typeLookupRows,
+      pokemonMoves: pokemonMovesRows,
+      moves: movesRows,
+      moveNames: moveNamesRows,
+      moveDamageClasses: moveDamageClassesRows,
+      moveLearnMethods: moveLearnMethodsRows,
+      moveLearnMethodProse: moveLearnMethodProseRows,
     );
 
     final importTimestamp = clock.now();

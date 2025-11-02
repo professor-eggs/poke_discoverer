@@ -36,6 +36,7 @@ void main() {
           PokemonStatValue(statId: 'atk', baseValue: 55),
         ],
         types: ['electric'],
+        moves: const [],
       ),
     ],
   );

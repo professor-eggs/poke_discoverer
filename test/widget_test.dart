@@ -114,6 +114,24 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('Detail page moves tab lists moves', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Bulbasaur'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Moves'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Level Up'), findsWidgets);
+    expect(find.text('Tackle'), findsOneWidget);
+    expect(find.text('Lv 1'), findsOneWidget);
+  });
+
   testWidgets('Shows selection bar after selecting a Pokemon', (tester) async {
     final pokemon = _samplePokemon();
     _arrangeCatalogDependencies(pokemon);
@@ -436,11 +454,39 @@ PokemonEntity _buildPokemon({
   required String name,
   required List<String> types,
   required List<int> stats,
+  List<PokemonMoveSummary>? moves,
 }) {
   final statIds = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
   final statValues = <PokemonStatValue>[
     for (var i = 0; i < stats.length; i++)
       PokemonStatValue(statId: statIds[i], baseValue: stats[i]),
+  ];
+
+  moves ??= <PokemonMoveSummary>[
+    PokemonMoveSummary(
+      moveId: id * 100 + 1,
+      methodId: 'level-up',
+      name: 'tackle',
+      method: 'Level up',
+      type: 'normal',
+      damageClass: 'physical',
+      level: 1,
+      power: 40,
+      accuracy: 100,
+      pp: 35,
+    ),
+    PokemonMoveSummary(
+      moveId: id * 100 + 2,
+      methodId: 'machine',
+      name: 'echoed-voice',
+      method: 'Machine',
+      type: 'normal',
+      damageClass: 'special',
+      level: null,
+      power: 40,
+      accuracy: 100,
+      pp: 15,
+    ),
   ];
 
   return PokemonEntity(
@@ -452,15 +498,16 @@ PokemonEntity _buildPokemon({
         id: id,
         name: name,
         isDefault: true,
-        types: types,
-        stats: statValues,
-        sprites: const [
-          MediaAssetReference(assetId: 'sprite', kind: MediaAssetKind.sprite),
-        ],
-      ),
-    ],
-  );
-}
+          types: types,
+          stats: statValues,
+          sprites: const [
+            MediaAssetReference(assetId: 'sprite', kind: MediaAssetKind.sprite),
+          ],
+          moves: moves,
+        ),
+      ],
+    );
+  }
 
 List<PokemonEntity> _samplePokemon() => <PokemonEntity>[
   _buildPokemon(

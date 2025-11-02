@@ -19,7 +19,7 @@ class PokemonApiMapper {
     final formsJson = json['forms'] as List<dynamic>? ?? const [];
     final isDefaultFlag = json['is_default'] as bool? ?? true;
 
-    final forms = formsJson.isEmpty
+    final List<PokemonFormEntity> forms = formsJson.isEmpty
         ? [
             PokemonFormEntity(
               id: id,
@@ -28,6 +28,7 @@ class PokemonApiMapper {
               types: types,
               stats: stats,
               sprites: sprites,
+              moves: const [],
             ),
           ]
         : formsJson
@@ -40,6 +41,7 @@ class PokemonApiMapper {
                   fallbackId: id,
                   fallbackDefaultFlag: isDefaultFlag,
                 ))
+            .cast<PokemonFormEntity>()
             .toList(growable: false);
 
     return PokemonEntity(
@@ -70,6 +72,7 @@ class PokemonApiMapper {
       types: defaultTypes,
       stats: defaultStats,
       sprites: defaultSprites,
+      moves: const [],
     );
   }
 

@@ -63,6 +63,8 @@ class PokemonCacheMapper {
           form.stats.map(_statToJson).toList(growable: false),
       'sprites':
           form.sprites.map(_spriteToJson).toList(growable: false),
+      'moves':
+          form.moves.map(_moveToJson).toList(growable: false),
     };
   }
 
@@ -83,6 +85,10 @@ class PokemonCacheMapper {
       sprites: (json['sprites'] as List<dynamic>)
           .map((raw) =>
               _spriteFromJson(raw as Map<String, dynamic>))
+          .toList(growable: false),
+      moves: (json['moves'] as List<dynamic>? ?? const <dynamic>[])
+          .map((raw) =>
+              _moveFromJson(raw as Map<String, dynamic>))
           .toList(growable: false),
     );
   }
@@ -129,6 +135,38 @@ class PokemonCacheMapper {
       localPath: json['localPath'] as String?,
       remoteUrl:
           remoteUrl == null ? null : Uri.tryParse(remoteUrl),
+    );
+  }
+
+  static Map<String, dynamic> _moveToJson(PokemonMoveSummary move) {
+    return {
+      'moveId': move.moveId,
+      'methodId': move.methodId,
+      'name': move.name,
+      'method': move.method,
+      'type': move.type,
+      'damageClass': move.damageClass,
+      'level': move.level,
+      'power': move.power,
+      'accuracy': move.accuracy,
+      'pp': move.pp,
+    };
+  }
+
+  static PokemonMoveSummary _moveFromJson(
+    Map<String, dynamic> json,
+  ) {
+    return PokemonMoveSummary(
+      moveId: json['moveId'] as int,
+      methodId: json['methodId'] as String,
+      name: json['name'] as String,
+      method: json['method'] as String,
+      type: json['type'] as String,
+      damageClass: json['damageClass'] as String,
+      level: json['level'] as int?,
+      power: json['power'] as int?,
+      accuracy: json['accuracy'] as int?,
+      pp: json['pp'] as int?,
     );
   }
 }

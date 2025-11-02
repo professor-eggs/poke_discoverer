@@ -26,34 +26,60 @@ class _PokemonDetailPageState extends State<PokemonDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Pokemon #${widget.pokemonId.toString().padLeft(3, '0')}'),
-      ),
-      body: FutureBuilder<PokemonEntity?>(
-        future: _pokemonFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return _ErrorView(message: snapshot.error.toString());
-          }
-          final pokemon = snapshot.data;
-          if (pokemon == null) {
-            return const _ErrorView(
-              message: 'Pokemon not found in local cache.',
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Pokemon #${widget.pokemonId.toString().padLeft(3, '0')}'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Stats'),
+              Tab(text: 'Moves'),
+            ],
+          ),
+        ),
+        body: FutureBuilder<PokemonEntity?>(
+          future: _pokemonFuture,
+          builder: (context, snapshot) {
+            Widget buildPlaceholder(Widget child) => TabBarView(
+                  children: [
+                    child,
+                    child,
+                  ],
+                );
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return buildPlaceholder(
+                const Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snapshot.hasError) {
+              return buildPlaceholder(
+                _ErrorView(message: snapshot.error.toString()),
+              );
+            }
+            final pokemon = snapshot.data;
+            if (pokemon == null) {
+              return buildPlaceholder(
+                const _ErrorView(
+                  message: 'Pokemon not found in local cache.',
+                ),
+              );
+            }
+            return TabBarView(
+              children: [
+                _PokemonStatsView(pokemon: pokemon),
+                _PokemonMovesView(pokemon: pokemon),
+              ],
             );
-          }
-          return _PokemonDetailBody(pokemon: pokemon);
-        },
+          },
+        ),
       ),
     );
   }
 }
 
-class _PokemonDetailBody extends StatelessWidget {
-  const _PokemonDetailBody({required this.pokemon});
+class _PokemonStatsView extends StatelessWidget {
+  const _PokemonStatsView({required this.pokemon});
 
   final PokemonEntity pokemon;
 
@@ -337,6 +363,255 @@ class _EffectivenessGroup extends StatelessWidget {
     }
     return multiplier.toStringAsFixed(2);
   }
+}
+
+class _PokemonMovesView extends StatefulWidget {
+  const _PokemonMovesView({required this.pokemon});
+
+  final PokemonEntity pokemon;
+
+  @override
+  State<_PokemonMovesView> createState() => _PokemonMovesViewState();
+}
+
+class _PokemonMovesViewState extends State<_PokemonMovesView> {
+  static const String _allMethodsId = '__all__';
+  late final List<_MethodGroup> _groups;
+  late String _activeMethodId;
+
+  @override
+  void initState() {
+    super.initState();
+    _groups = _groupMoves(widget.pokemon.defaultForm.moves);
+    if (_groups.any((group) => group.id == 'level-up')) {
+      _activeMethodId = 'level-up';
+    } else {
+      _activeMethodId = _allMethodsId;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (_groups.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No move data available for this Pokemon.',
+            style: theme.textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final chips = <Widget>[
+      ChoiceChip(
+        label: const Text('All methods'),
+        selected: _activeMethodId == _allMethodsId,
+        onSelected: (_) {
+          setState(() {
+            _activeMethodId = _allMethodsId;
+          });
+        },
+      ),
+      for (final group in _groups)
+        ChoiceChip(
+          label: Text(group.name),
+          selected: _activeMethodId == group.id,
+          onSelected: (_) {
+            setState(() {
+              _activeMethodId = group.id;
+            });
+          },
+        ),
+    ];
+
+    final displayGroups = _activeMethodId == _allMethodsId
+        ? _groups
+        : _groups.where((group) => group.id == _activeMethodId).toList();
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final chip in chips) ...[
+                  chip,
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView.builder(
+              itemCount: displayGroups.length,
+              itemBuilder: (context, index) {
+                final group = displayGroups[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == displayGroups.length - 1 ? 0 : 16,
+                  ),
+                  child: _MoveGroupCard(group: group),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_MethodGroup> _groupMoves(List<PokemonMoveSummary> moves) {
+    int methodRank(String methodId) {
+      switch (methodId) {
+        case 'level-up':
+          return 0;
+        case 'machine':
+          return 1;
+        case 'tutor':
+          return 2;
+        case 'egg':
+          return 3;
+        default:
+          return 4;
+      }
+    }
+
+    String normalise(String value) => value.toLowerCase().trim();
+
+    final Map<String, List<PokemonMoveSummary>> grouped = {};
+    for (final move in moves) {
+      final id = normalise(move.methodId);
+      grouped.putIfAbsent(id, () => <PokemonMoveSummary>[]).add(move);
+    }
+
+    final groups = grouped.entries.map((entry) {
+      final id = entry.key;
+      final name = _titleCase(entry.value.first.method);
+      final sortedMoves = List<PokemonMoveSummary>.from(entry.value)
+        ..sort((a, b) {
+          final levelA = a.level ?? 999;
+          final levelB = b.level ?? 999;
+          final levelComparison = levelA.compareTo(levelB);
+          if (levelComparison != 0) return levelComparison;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+      return _MethodGroup(id: id, name: name, moves: sortedMoves);
+    }).toList(growable: false)
+      ..sort((a, b) {
+        final rank = methodRank(a.id).compareTo(methodRank(b.id));
+        if (rank != 0) return rank;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    return groups;
+  }
+}
+
+class _MethodGroup {
+  const _MethodGroup({
+    required this.id,
+    required this.name,
+    required this.moves,
+  });
+
+  final String id;
+  final String name;
+  final List<PokemonMoveSummary> moves;
+}
+
+class _MoveGroupCard extends StatelessWidget {
+  const _MoveGroupCard({required this.group});
+
+  final _MethodGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(group.name, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            for (final move in group.moves) ...[
+              _MoveListTile(move: move),
+              if (move != group.moves.last) const Divider(height: 16),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MoveListTile extends StatelessWidget {
+  const _MoveListTile({required this.move});
+
+  final PokemonMoveSummary move;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final metaParts = <String>[];
+    if (move.damageClass.isNotEmpty) {
+      metaParts.add(_titleCase(move.damageClass));
+    }
+    if (move.power != null) {
+      metaParts.add('Power ${move.power}');
+    }
+    if (move.accuracy != null) {
+      metaParts.add('Accuracy ${move.accuracy}%');
+    }
+    if (move.pp != null) {
+      metaParts.add('PP ${move.pp}');
+    }
+
+    final levelText = move.level != null && move.level! > 0
+        ? 'Lv ${move.level}'
+        : _titleCase(move.method);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(_titleCase(move.name)),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          metaParts.isEmpty ? _titleCase(move.method) : metaParts.join(' | '),
+          style: theme.textTheme.bodySmall,
+        ),
+      ),
+      leading: Chip(
+        label: Text(_titleCase(move.type)),
+      ),
+      trailing: Text(
+        levelText,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+String _titleCase(String value) {
+  if (value.isEmpty) return value;
+  return value
+      .split(' ')
+      .map(
+        (part) => part.isEmpty
+            ? part
+            : part[0].toUpperCase() + part.substring(1).toLowerCase(),
+      )
+      .join(' ');
 }
 
 class _InfoRow extends StatelessWidget {

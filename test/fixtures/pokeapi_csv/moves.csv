@@ -1,0 +1,3 @@
+id,identifier,type_id,damage_class_id,power,pp,accuracy
+33,tackle,1,2,40,35,100
+52,vine-whip,12,2,45,25,100
