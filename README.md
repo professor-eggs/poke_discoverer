@@ -65,4 +65,7 @@ reads directly from `data/pokeapi-master/data/v2/csv/`.
 This app uses Pokémon data in CSV format from the [PokéAPI project](https://github.com/PokeAPI/pokeapi),
 which is made available under the MIT License. See the [PokéAPI GitHub repository](https://github.com/PokeAPI/pokeapi) for details.
 
+
 All Pokémon data and CSVs included in this repository are © PokéAPI contributors and used under the terms of the MIT License.
+
+Pokémon sprites are © PokéAPI, used under the CC0 1.0 Universal license. See the [PokéAPI Sprites repository](https://github.com/PokeAPI/sprites) for details.
