@@ -1,3 +1,5 @@
+[![Netlify Status](https://api.netlify.com/api/v1/badges/bda36bbe-b58e-4b60-bad4-c2168e275b01/deploy-status)](https://app.netlify.com/projects/poke-discoverer/deploys)
+
 # Manny's PokeApp – Developer Quickstart
 
 This workspace powers Manny's PokeApp, a Flutter experience for browsing Pokémon data,

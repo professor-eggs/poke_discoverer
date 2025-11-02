@@ -281,6 +281,53 @@ void main() {
       expect(find.textContaining('Level 65'), findsOneWidget);
     }
   });
+
+  testWidgets('Comparison page surfaces missing data banner and seeds cache', (
+    tester,
+  ) async {
+    final allPokemon = _samplePokemon();
+    final initialPokemon = allPokemon.take(2).toList();
+    _arrangeCatalogDependencies(initialPokemon);
+
+    addTearDown(resetInitializeComparisonDependencies);
+
+    var seedCalls = 0;
+    initializeComparisonDependencies = ({bool forceImport = false}) async {
+      seedCalls++;
+      expect(forceImport, isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      final seededCache = _InMemoryPokemonCacheStore.fromPokemon(allPokemon);
+      return AppDependencies(
+        cacheStore: seededCache,
+        catalogService: PokemonCatalogService(cacheStore: seededCache),
+        snapshotRepository: DataSourceSnapshotRepository(
+          store: _NoopSnapshotStore(),
+          clock: const SystemClock(),
+        ),
+        csvLoader: const _StubCsvLoader(),
+        typeMatchupService: const _FakeTypeMatchupService(),
+        statCalculator: const PokemonStatCalculator(),
+      );
+    };
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1, 4, 7])),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('#007'), findsOneWidget);
+    expect(find.textContaining('missing from the local cache'), findsOneWidget);
+    expect(find.text('Import cached data'), findsOneWidget);
+
+    await tester.tap(find.text('Import cached data'));
+    await tester.pump();
+
+    await tester.pumpAndSettle();
+
+    expect(seedCalls, 1);
+    expect(find.textContaining('missing from the local cache'), findsNothing);
+    expect(find.text('Squirtle'), findsWidgets);
+  });
 }
 
 PokemonEntity _buildPokemon({
