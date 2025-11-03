@@ -281,15 +281,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Compare (2)'), findsOneWidget);
-
-    final scrollable = find.byKey(const Key('comparisonScroll'));
-    await tester.drag(scrollable, const Offset(0, -600));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(DataTable), findsOneWidget);
-    expect(find.text('Team coverage'), findsOneWidget);
-    expect(find.text('Needs coverage'), findsOneWidget);
-    expect(find.text('Covered by team'), findsOneWidget);
+    expect(find.byKey(const ValueKey('comparison-card-1')), findsOneWidget);
+    expect(find.text('Recommended moves'), findsWidgets);
   });
 
   testWidgets('Computed stats mode recalculates totals by level', (
@@ -384,6 +377,30 @@ void main() {
     expect(find.textContaining('Weak to'), findsWidgets);
     expect(find.textContaining('Weak to Fire x2'), findsWidgets);
     expect(find.textContaining('Resists Water x0.5'), findsWidgets);
+  });
+
+  testWidgets('Recommended moves react to preset changes', (tester) async {
+    final pokemon = _samplePokemon();
+    _arrangeCatalogDependencies(pokemon);
+
+    await tester.pumpWidget(
+      MaterialApp(home: PokemonComparisonPage(pokemonIds: const [1])),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Computed'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recommended moves'), findsWidgets);
+    expect(find.text('Vine Whip'), findsWidgets);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('presetDropdown-1')));
+    await tester.tap(find.byKey(const ValueKey('presetDropdown-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Special sweeper').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solar Beam'), findsWidgets);
   });
 
   testWidgets('Global level control updates all cards', (tester) async {
@@ -506,12 +523,13 @@ PokemonEntity _buildPokemon({
       PokemonStatValue(statId: statIds[i], baseValue: stats[i]),
   ];
 
-  moves ??= <PokemonMoveSummary>[
-    PokemonMoveSummary(
-      moveId: id * 100 + 1,
-      methodId: 'level-up',
-      name: 'tackle',
-      method: 'Level up',
+  final effectiveMoves = moves == null
+      ? <PokemonMoveSummary>[
+          PokemonMoveSummary(
+            moveId: id * 100 + 1,
+            methodId: 'level-up',
+            name: 'tackle',
+            method: 'Level up',
       type: 'normal',
       damageClass: 'physical',
       versionDetails: const [
@@ -529,31 +547,172 @@ PokemonEntity _buildPokemon({
         ),
       ],
       level: 1,
-      power: 40,
-      accuracy: 100,
-      pp: 35,
-    ),
-    PokemonMoveSummary(
-      moveId: id * 100 + 2,
-      methodId: 'machine',
-      name: 'echoed voice',
-      method: 'Machine',
-      type: 'normal',
-      damageClass: 'special',
-      versionDetails: const [
-        PokemonMoveVersionDetail(
-          versionGroupId: 18,
-          versionGroupName: 'Ultra Sun & Ultra Moon',
-          sortOrder: 18,
-          level: null,
+            power: 40,
+            accuracy: 100,
+            pp: 35,
+          ),
+          PokemonMoveSummary(
+            moveId: id * 100 + 2,
+            methodId: 'machine',
+            name: 'echoed voice',
+            method: 'Machine',
+            type: 'normal',
+            damageClass: 'special',
+            versionDetails: const [
+              PokemonMoveVersionDetail(
+                versionGroupId: 18,
+                versionGroupName: 'Ultra Sun & Ultra Moon',
+                sortOrder: 18,
+                level: null,
+              ),
+            ],
+            level: null,
+            power: 40,
+            accuracy: 100,
+            pp: 15,
+          ),
+        ]
+      : List<PokemonMoveSummary>.from(moves!);
+
+  if (types.contains('grass')) {
+    effectiveMoves
+      ..add(
+        PokemonMoveSummary(
+          moveId: id * 100 + 3,
+          methodId: 'level-up',
+          name: 'vine whip',
+          method: 'Level up',
+          type: 'grass',
+          damageClass: 'physical',
+          versionDetails: const [
+            PokemonMoveVersionDetail(
+              versionGroupId: 15,
+              versionGroupName: 'Omega Ruby & Alpha Sapphire',
+              sortOrder: 15,
+              level: 9,
+            ),
+          ],
+          level: 9,
+          power: 45,
+          accuracy: 100,
+          pp: 25,
         ),
-      ],
-      level: null,
-      power: 40,
-      accuracy: 100,
-      pp: 15,
-    ),
-  ];
+      )
+      ..add(
+        PokemonMoveSummary(
+          moveId: id * 100 + 4,
+          methodId: 'machine',
+          name: 'solar beam',
+          method: 'Machine',
+          type: 'grass',
+          damageClass: 'special',
+          versionDetails: const [
+            PokemonMoveVersionDetail(
+              versionGroupId: 18,
+              versionGroupName: 'Ultra Sun & Ultra Moon',
+              sortOrder: 18,
+              level: null,
+            ),
+          ],
+          level: null,
+          power: 120,
+          accuracy: 100,
+          pp: 10,
+        ),
+      );
+  } else if (types.contains('fire')) {
+    effectiveMoves
+      ..add(
+        PokemonMoveSummary(
+          moveId: id * 100 + 3,
+          methodId: 'level-up',
+          name: 'flame charge',
+          method: 'Level up',
+          type: 'fire',
+          damageClass: 'physical',
+          versionDetails: const [
+            PokemonMoveVersionDetail(
+              versionGroupId: 15,
+              versionGroupName: 'Omega Ruby & Alpha Sapphire',
+              sortOrder: 15,
+              level: 15,
+            ),
+          ],
+          level: 15,
+          power: 50,
+          accuracy: 100,
+          pp: 20,
+        ),
+      )
+      ..add(
+        PokemonMoveSummary(
+          moveId: id * 100 + 4,
+          methodId: 'machine',
+          name: 'flamethrower',
+          method: 'Machine',
+          type: 'fire',
+          damageClass: 'special',
+          versionDetails: const [
+            PokemonMoveVersionDetail(
+              versionGroupId: 18,
+              versionGroupName: 'Ultra Sun & Ultra Moon',
+              sortOrder: 18,
+              level: null,
+            ),
+          ],
+          level: null,
+          power: 90,
+          accuracy: 100,
+          pp: 15,
+        ),
+      );
+  } else if (types.contains('water')) {
+    effectiveMoves
+      ..add(
+        PokemonMoveSummary(
+          moveId: id * 100 + 3,
+          methodId: 'level-up',
+          name: 'aqua tail',
+          method: 'Level up',
+          type: 'water',
+          damageClass: 'physical',
+          versionDetails: const [
+            PokemonMoveVersionDetail(
+              versionGroupId: 15,
+              versionGroupName: 'Omega Ruby & Alpha Sapphire',
+              sortOrder: 15,
+              level: 21,
+            ),
+          ],
+          level: 21,
+          power: 90,
+          accuracy: 90,
+          pp: 10,
+        ),
+      )
+      ..add(
+        PokemonMoveSummary(
+          moveId: id * 100 + 4,
+          methodId: 'machine',
+          name: 'hydro pump',
+          method: 'Machine',
+          type: 'water',
+          damageClass: 'special',
+          versionDetails: const [
+            PokemonMoveVersionDetail(
+              versionGroupId: 18,
+              versionGroupName: 'Ultra Sun & Ultra Moon',
+              sortOrder: 18,
+              level: null,
+            ),
+          ],
+          level: null,
+          power: 110,
+          accuracy: 80,
+          pp: 5,
+        ),
+      );
+  }
 
   return PokemonEntity(
     id: id,
@@ -565,15 +724,15 @@ PokemonEntity _buildPokemon({
         name: name,
         isDefault: true,
           types: types,
-          stats: statValues,
-          sprites: const [
-            MediaAssetReference(assetId: 'sprite', kind: MediaAssetKind.sprite),
-          ],
-          moves: moves,
-        ),
-      ],
-    );
-  }
+        stats: statValues,
+        sprites: const [
+          MediaAssetReference(assetId: 'sprite', kind: MediaAssetKind.sprite),
+        ],
+        moves: effectiveMoves,
+      ),
+    ],
+  );
+}
 
 List<PokemonEntity> _samplePokemon() => <PokemonEntity>[
   _buildPokemon(

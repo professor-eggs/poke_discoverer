@@ -754,6 +754,11 @@ class _PokemonSummaryCard extends StatelessWidget {
     final accentColor = highlight
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurface;
+    final recommendedMoves = _recommendMoves(
+      form: defaultForm,
+      preset: preset,
+      level: level,
+    );
 
     return SizedBox(
       width: 220,
@@ -875,10 +880,19 @@ class _PokemonSummaryCard extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (defaultForm.types.isNotEmpty) ...[
+                if (recommendedMoves.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _TypeMatchupPreview(types: defaultForm.types),
+                  Text(
+                    'Recommended moves',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  _RecommendedMovesList(moves: recommendedMoves),
                 ],
+if (defaultForm.types.isNotEmpty) ...[
+  const SizedBox(height: 12),
+  _TypeMatchupPreview(types: defaultForm.types),
+],
               ],
             ),
           ),
@@ -887,6 +901,282 @@ class _PokemonSummaryCard extends StatelessWidget {
     );
   }
 }
+
+class _RecommendedMovesList extends StatelessWidget {
+  const _RecommendedMovesList({required this.moves});
+
+  final List<_RecommendedMove> moves;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final move in moves)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: move == moves.last ? 0 : 6,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatMoveLabel(move.move.name),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: move.isStab || move.matchesPreset
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: move.isStab
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface,
+                  ),
+                ),
+                if (move.tags.isNotEmpty)
+                  Text(
+                    move.tags.join(' • '),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RecommendedMove {
+  const _RecommendedMove({
+    required this.move,
+    required this.tags,
+    required this.score,
+    required this.isStab,
+    required this.matchesPreset,
+  });
+
+  final PokemonMoveSummary move;
+  final List<String> tags;
+  final int score;
+  final bool isStab;
+  final bool matchesPreset;
+}
+
+List<_RecommendedMove> _recommendMoves({
+  required PokemonFormEntity form,
+  required StatPreset preset,
+  required int level,
+}) {
+  if (form.moves.isEmpty) {
+    return const <_RecommendedMove>[];
+  }
+  final types = form.types.map((type) => type.toLowerCase()).toSet();
+  final preferredDamageClass = _preferredDamageClassForPreset(preset);
+  final results = <_RecommendedMove>[];
+  for (final move in form.moves) {
+    if (!_isMoveAvailable(move, level)) {
+      continue;
+    }
+    final damageClass = move.damageClass.toLowerCase();
+    final isStab = types.contains(move.type.toLowerCase());
+    final matchesPreset = preferredDamageClass == null
+        ? (preset == StatPreset.physicalWall ||
+            preset == StatPreset.specialWall) &&
+            damageClass == 'status'
+        : damageClass == preferredDamageClass;
+
+    var score = 0;
+    if (isStab) {
+      score += 40;
+    }
+    if (matchesPreset) {
+      score += 60;
+    }
+    if (damageClass == 'status' &&
+        (preset == StatPreset.physicalWall ||
+            preset == StatPreset.specialWall)) {
+      score += 50;
+    }
+
+    final power = move.power ?? 0;
+    if (power > 0) {
+      score += power;
+    } else if (damageClass == 'status') {
+      score += 20;
+    }
+
+    if (move.accuracy != null && move.accuracy! >= 95) {
+      score += 5;
+    }
+    switch (move.methodId) {
+      case 'machine':
+        score += 10;
+        break;
+      case 'tutor':
+        score += 8;
+        break;
+      case 'egg':
+        score += 4;
+        break;
+      case 'level-up':
+        score += 6;
+        break;
+    }
+
+    if (preferredDamageClass != null && damageClass != preferredDamageClass) {
+      score -= 30;
+    }
+
+    score += _keywordBonus(move.name, preset);
+
+    if (score <= 0) {
+      continue;
+    }
+
+    final tags = _buildMoveTags(
+      move: move,
+      isStab: isStab,
+    );
+
+    results.add(
+      _RecommendedMove(
+        move: move,
+        tags: tags,
+        score: score,
+        isStab: isStab,
+        matchesPreset: matchesPreset,
+      ),
+    );
+  }
+
+  results.sort((a, b) {
+    final scoreCompare = b.score.compareTo(a.score);
+    if (scoreCompare != 0) return scoreCompare;
+    return a.move.name.compareTo(b.move.name);
+  });
+
+  return results.take(3).toList(growable: false);
+}
+
+String? _preferredDamageClassForPreset(StatPreset preset) {
+  switch (preset) {
+    case StatPreset.physicalSweeper:
+      return 'physical';
+    case StatPreset.specialSweeper:
+      return 'special';
+    case StatPreset.physicalWall:
+    case StatPreset.specialWall:
+      return 'status';
+    case StatPreset.neutral:
+      return null;
+  }
+}
+
+bool _isMoveAvailable(PokemonMoveSummary move, int targetLevel) {
+  if (move.methodId == 'level-up' && move.level != null && move.level! > 0) {
+    return move.level! <= targetLevel;
+  }
+  return true;
+}
+
+List<String> _buildMoveTags({
+  required PokemonMoveSummary move,
+  required bool isStab,
+}) {
+  final tags = <String>[];
+  if (isStab) {
+    tags.add('STAB');
+  }
+  final damageLabel = _formatDamageClass(move.damageClass);
+  if (damageLabel != null) {
+    tags.add(damageLabel);
+  }
+  if (move.power != null && move.power! > 0) {
+    tags.add('${move.power} BP');
+  } else if (move.damageClass.toLowerCase() == 'status') {
+    tags.add('Status');
+  }
+  if (move.methodId == 'level-up') {
+    final requiredLevel = move.level;
+    if (requiredLevel != null && requiredLevel > 0) {
+      tags.add('Lv $requiredLevel');
+    }
+  } else {
+    tags.add(move.method);
+  }
+  return tags;
+}
+
+String? _formatDamageClass(String damageClass) {
+  switch (damageClass.toLowerCase()) {
+    case 'physical':
+      return 'Physical';
+    case 'special':
+      return 'Special';
+    case 'status':
+      return null;
+    default:
+      return null;
+  }
+}
+
+String _formatMoveLabel(String rawName) {
+  final parts = rawName
+      .toLowerCase()
+      .split(RegExp(r'[- ]'))
+      .where((part) => part.isNotEmpty)
+      .map(
+        (part) => part[0].toUpperCase() + part.substring(1),
+      )
+      .toList(growable: false);
+  return parts.isEmpty ? rawName : parts.join(' ');
+}
+
+int _keywordBonus(String moveName, StatPreset preset) {
+  final slug = moveName.toLowerCase().replaceAll(' ', '-');
+  final bonus = _moveKeywordBonuses[slug] ?? 0;
+  if (bonus == 0) {
+    return 0;
+  }
+  if (preset == StatPreset.neutral) {
+    return (bonus / 2).round();
+  }
+  return bonus;
+}
+
+const Map<String, int> _moveKeywordBonuses = <String, int>{
+  'swords-dance': 30,
+  'dragon-dance': 28,
+  'bulk-up': 28,
+  'calm-mind': 28,
+  'nasty-plot': 32,
+  'shell-smash': 35,
+  'agility': 18,
+  'rock-polish': 18,
+  'quiver-dance': 32,
+  'iron-defense': 26,
+  'acid-armor': 26,
+  'barrier': 24,
+  'protect': 16,
+  'detect': 16,
+  'reflect': 24,
+  'light-screen': 24,
+  'recover': 34,
+  'roost': 34,
+  'soft-boiled': 34,
+  'synthesis': 28,
+  'moonlight': 28,
+  'rest': 20,
+  'leech-seed': 22,
+  'will-o-wisp': 20,
+  'toxic': 18,
+  'stealth-rock': 26,
+  'spikes': 24,
+  'toxic-spikes': 24,
+  'sticky-web': 24,
+  'substitute': 20,
+};
 
 class _TypeMatchupPreview extends StatelessWidget {
   const _TypeMatchupPreview({required this.types});
