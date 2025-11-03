@@ -94,6 +94,7 @@ class PokemonMoveSummary extends Equatable {
     required this.method,
     required this.type,
     required this.damageClass,
+    required this.versionDetails,
     this.level,
     this.power,
     this.accuracy,
@@ -106,6 +107,7 @@ class PokemonMoveSummary extends Equatable {
   final String method;
   final String type;
   final String damageClass;
+  final List<PokemonMoveVersionDetail> versionDetails;
   final int? level;
   final int? power;
   final int? accuracy;
@@ -119,10 +121,33 @@ class PokemonMoveSummary extends Equatable {
         method,
         type,
         damageClass,
+        versionDetails,
         level,
         power,
         accuracy,
         pp,
+      ];
+}
+
+class PokemonMoveVersionDetail extends Equatable {
+  const PokemonMoveVersionDetail({
+    required this.versionGroupId,
+    required this.versionGroupName,
+    required this.sortOrder,
+    this.level,
+  });
+
+  final int versionGroupId;
+  final String versionGroupName;
+  final int sortOrder;
+  final int? level;
+
+  @override
+  List<Object?> get props => [
+        versionGroupId,
+        versionGroupName,
+        sortOrder,
+        level,
       ];
 }
 

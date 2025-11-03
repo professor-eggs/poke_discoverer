@@ -146,6 +146,9 @@ class PokemonCacheMapper {
       'method': move.method,
       'type': move.type,
       'damageClass': move.damageClass,
+      'versions': move.versionDetails
+          .map(_versionDetailToJson)
+          .toList(growable: false),
       'level': move.level,
       'power': move.power,
       'accuracy': move.accuracy,
@@ -163,10 +166,40 @@ class PokemonCacheMapper {
       method: json['method'] as String,
       type: json['type'] as String,
       damageClass: json['damageClass'] as String,
+      versionDetails: (json['versions'] as List<dynamic>? ?? const <dynamic>[])
+          .map(
+            (raw) => _versionDetailFromJson(
+              raw as Map<String, dynamic>,
+            ),
+          )
+          .toList(growable: false),
       level: json['level'] as int?,
       power: json['power'] as int?,
       accuracy: json['accuracy'] as int?,
       pp: json['pp'] as int?,
+    );
+  }
+
+  static Map<String, dynamic> _versionDetailToJson(
+    PokemonMoveVersionDetail detail,
+  ) {
+    return {
+      'versionGroupId': detail.versionGroupId,
+      'versionGroupName': detail.versionGroupName,
+      'sortOrder': detail.sortOrder,
+      'level': detail.level,
+    };
+  }
+
+  static PokemonMoveVersionDetail _versionDetailFromJson(
+    Map<String, dynamic> json,
+  ) {
+    return PokemonMoveVersionDetail(
+      versionGroupId: json['versionGroupId'] as int,
+      versionGroupName: json['versionGroupName'] as String,
+      sortOrder: json['sortOrder'] as int? ??
+          json['versionGroupId'] as int,
+      level: json['level'] as int?,
     );
   }
 }

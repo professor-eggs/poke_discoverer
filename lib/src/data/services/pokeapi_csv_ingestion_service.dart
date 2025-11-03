@@ -41,6 +41,13 @@ class PokeapiCsvIngestionService {
         await csvLoader.readCsv('pokemon_move_methods.csv');
     final moveLearnMethodProseRows =
         await csvLoader.readCsv('pokemon_move_method_prose.csv');
+    final versionGroupsRows = await csvLoader.readCsv('version_groups.csv');
+    final versionGroupRegionsRows =
+        await csvLoader.readCsv('version_group_regions.csv');
+    final versionGroupMethodRows =
+        await csvLoader.readCsv('version_group_pokemon_move_methods.csv');
+    final versionsRows = await csvLoader.readCsv('versions.csv');
+    final versionNamesRows = await csvLoader.readCsv('version_names.csv');
 
     final entities = PokemonCsvParser.parse(
       pokemon: pokemonRows,
@@ -54,6 +61,11 @@ class PokeapiCsvIngestionService {
       moveDamageClasses: moveDamageClassesRows,
       moveLearnMethods: moveLearnMethodsRows,
       moveLearnMethodProse: moveLearnMethodProseRows,
+      versionGroups: versionGroupsRows,
+      versionGroupRegions: versionGroupRegionsRows,
+      versionGroupMethodAvailability: versionGroupMethodRows,
+      versions: versionsRows,
+      versionNames: versionNamesRows,
     );
 
     final importTimestamp = clock.now();

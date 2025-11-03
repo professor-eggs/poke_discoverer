@@ -376,29 +376,40 @@ class _PokemonMovesView extends StatefulWidget {
 
 class _PokemonMovesViewState extends State<_PokemonMovesView> {
   static const String _allMethodsId = '__all__';
-  late final List<_MethodGroup> _groups;
-  late String _activeMethodId;
+  late final List<PokemonMoveSummary> _allMoves;
+  late final List<_VersionOption> _versionOptions;
+  String _activeMethodId = _allMethodsId;
+  int? _selectedVersionGroupId;
 
   @override
   void initState() {
     super.initState();
-    _groups = _groupMoves(widget.pokemon.defaultForm.moves);
-    if (_groups.any((group) => group.id == 'level-up')) {
+    _allMoves = widget.pokemon.defaultForm.moves;
+    _versionOptions = _buildVersionOptions(_allMoves);
+    final initialGroups = _groupMoves(_allMoves);
+    if (initialGroups.any((group) => group.id == 'level-up')) {
       _activeMethodId = 'level-up';
-    } else {
-      _activeMethodId = _allMethodsId;
     }
+    _selectedVersionGroupId = null;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (_groups.isEmpty) {
+    final filteredMoves = _filterMoves(_selectedVersionGroupId);
+    final groups = _groupMoves(filteredMoves);
+    final availableMethodIds = groups.map((group) => group.id).toSet();
+    final effectiveMethodId = (_activeMethodId != _allMethodsId &&
+            !availableMethodIds.contains(_activeMethodId))
+        ? _allMethodsId
+        : _activeMethodId;
+
+    if (groups.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'No move data available for this Pokemon.',
+            'No moves found for this combination. Try adjusting the method or version filters.',
             style: theme.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -406,20 +417,42 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
       );
     }
 
-    final chips = <Widget>[
+    final versionChips = <Widget>[
+      ChoiceChip(
+        label: const Text('All versions'),
+        selected: _selectedVersionGroupId == null,
+        onSelected: (_) {
+          setState(() {
+            _selectedVersionGroupId = null;
+          });
+        },
+      ),
+      for (final option in _versionOptions)
+        ChoiceChip(
+          label: Text(option.name),
+          selected: _selectedVersionGroupId == option.id,
+          onSelected: (_) {
+            setState(() {
+              _selectedVersionGroupId = option.id;
+            });
+          },
+        ),
+    ];
+
+    final methodChips = <Widget>[
       ChoiceChip(
         label: const Text('All methods'),
-        selected: _activeMethodId == _allMethodsId,
+        selected: effectiveMethodId == _allMethodsId,
         onSelected: (_) {
           setState(() {
             _activeMethodId = _allMethodsId;
           });
         },
       ),
-      for (final group in _groups)
+      for (final group in groups)
         ChoiceChip(
           label: Text(group.name),
-          selected: _activeMethodId == group.id,
+          selected: effectiveMethodId == group.id,
           onSelected: (_) {
             setState(() {
               _activeMethodId = group.id;
@@ -428,20 +461,36 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
         ),
     ];
 
-    final displayGroups = _activeMethodId == _allMethodsId
-        ? _groups
-        : _groups.where((group) => group.id == _activeMethodId).toList();
+    final filteredGroups = effectiveMethodId == _allMethodsId
+        ? groups
+        : groups.where((group) => group.id == effectiveMethodId).toList();
+    final displayGroups =
+        filteredGroups.isEmpty ? groups : filteredGroups;
 
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_versionOptions.isNotEmpty) ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final chip in versionChips) ...[
+                    chip,
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                for (final chip in chips) ...[
+                for (final chip in methodChips) ...[
                   chip,
                   const SizedBox(width: 8),
                 ],
@@ -458,7 +507,10 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
                   padding: EdgeInsets.only(
                     bottom: index == displayGroups.length - 1 ? 0 : 16,
                   ),
-                  child: _MoveGroupCard(group: group),
+                  child: _MoveGroupCard(
+                    group: group,
+                    selectedVersionGroupId: _selectedVersionGroupId,
+                  ),
                 );
               },
             ),
@@ -466,6 +518,44 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
         ],
       ),
     );
+  }
+
+  List<PokemonMoveSummary> _filterMoves(int? versionGroupId) {
+    if (versionGroupId == null) {
+      return _allMoves;
+    }
+    return _allMoves
+        .where(
+          (move) => move.versionDetails
+              .any((detail) => detail.versionGroupId == versionGroupId),
+        )
+        .toList(growable: false);
+  }
+
+  List<_VersionOption> _buildVersionOptions(List<PokemonMoveSummary> moves) {
+    final options = <int, _VersionOption>{};
+    for (final move in moves) {
+      for (final detail in move.versionDetails) {
+        final existing = options[detail.versionGroupId];
+        if (existing == null ||
+            detail.sortOrder < existing.sortOrder ||
+            (detail.sortOrder == existing.sortOrder &&
+                detail.versionGroupName.compareTo(existing.name) < 0)) {
+          options[detail.versionGroupId] = _VersionOption(
+            id: detail.versionGroupId,
+            name: detail.versionGroupName,
+            sortOrder: detail.sortOrder,
+          );
+        }
+      }
+    }
+    final list = options.values.toList(growable: false)
+      ..sort((a, b) {
+        final orderCompare = a.sortOrder.compareTo(b.sortOrder);
+        if (orderCompare != 0) return orderCompare;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    return list;
   }
 
   List<_MethodGroup> _groupMoves(List<PokemonMoveSummary> moves) {
@@ -513,6 +603,17 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
     return groups;
   }
 }
+class _VersionOption {
+  const _VersionOption({
+    required this.id,
+    required this.name,
+    required this.sortOrder,
+  });
+
+  final int id;
+  final String name;
+  final int sortOrder;
+}
 
 class _MethodGroup {
   const _MethodGroup({
@@ -527,9 +628,13 @@ class _MethodGroup {
 }
 
 class _MoveGroupCard extends StatelessWidget {
-  const _MoveGroupCard({required this.group});
+  const _MoveGroupCard({
+    required this.group,
+    required this.selectedVersionGroupId,
+  });
 
   final _MethodGroup group;
+  final int? selectedVersionGroupId;
 
   @override
   Widget build(BuildContext context) {
@@ -543,7 +648,10 @@ class _MoveGroupCard extends StatelessWidget {
             Text(group.name, style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             for (final move in group.moves) ...[
-              _MoveListTile(move: move),
+              _MoveListTile(
+                move: move,
+                selectedVersionGroupId: selectedVersionGroupId,
+              ),
               if (move != group.moves.last) const Divider(height: 16),
             ],
           ],
@@ -554,9 +662,13 @@ class _MoveGroupCard extends StatelessWidget {
 }
 
 class _MoveListTile extends StatelessWidget {
-  const _MoveListTile({required this.move});
+  const _MoveListTile({
+    required this.move,
+    required this.selectedVersionGroupId,
+  });
 
   final PokemonMoveSummary move;
+  final int? selectedVersionGroupId;
 
   @override
   Widget build(BuildContext context) {
@@ -575,25 +687,94 @@ class _MoveListTile extends StatelessWidget {
       metaParts.add('PP ${move.pp}');
     }
 
-    final levelText = move.level != null && move.level! > 0
-        ? 'Lv ${move.level}'
+    final filteredDetails = selectedVersionGroupId == null
+        ? move.versionDetails
+        : move.versionDetails
+            .where((detail) => detail.versionGroupId == selectedVersionGroupId)
+            .toList(growable: false);
+
+    final displayDetails = filteredDetails.isNotEmpty
+        ? filteredDetails
+        : (selectedVersionGroupId == null
+            ? move.versionDetails
+            : const <PokemonMoveVersionDetail>[]);
+
+    int? resolveLevel() {
+      final Iterable<PokemonMoveVersionDetail> search =
+          filteredDetails.isNotEmpty ? filteredDetails : move.versionDetails;
+      for (final detail in search) {
+        final level = detail.level;
+        if (level != null && level > 0) {
+          return level;
+        }
+      }
+      return move.level;
+    }
+
+    final resolvedLevel = resolveLevel();
+    final trailingLabel = resolvedLevel != null && resolvedLevel > 0
+        ? 'Lv $resolvedLevel'
         : _titleCase(move.method);
+
+    Widget buildVersionWrap() {
+      if (selectedVersionGroupId != null && displayDetails.isEmpty) {
+        return Text(
+          'Unavailable in selected version',
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontStyle: FontStyle.italic,
+          ),
+        );
+      }
+      if (displayDetails.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: displayDetails.map((detail) {
+          final label = detail.level != null && detail.level! > 0
+              ? '${detail.versionGroupName} (Lv ${detail.level})'
+              : detail.versionGroupName;
+          return Chip(
+            visualDensity: VisualDensity.compact,
+            label: Text(label),
+          );
+        }).toList(growable: false),
+      );
+    }
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(_titleCase(move.name)),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          metaParts.isEmpty ? _titleCase(move.method) : metaParts.join(' | '),
-          style: theme.textTheme.bodySmall,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: () {
+            final children = <Widget>[
+              Text(
+                metaParts.isEmpty
+                    ? _titleCase(move.method)
+                    : metaParts.join(' | '),
+                style: theme.textTheme.bodySmall,
+              ),
+            ];
+            final versionWidget = buildVersionWrap();
+            final shouldShowVersion = !(versionWidget is SizedBox);
+            if (shouldShowVersion) {
+              children
+                ..add(const SizedBox(height: 6))
+                ..add(versionWidget);
+            }
+            return children;
+          }(),
         ),
       ),
       leading: Chip(
         label: Text(_titleCase(move.type)),
       ),
       trailing: Text(
-        levelText,
+        trailingLabel,
         style: theme.textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
         ),

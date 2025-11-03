@@ -132,6 +132,50 @@ void main() {
     expect(find.text('Lv 1'), findsOneWidget);
   });
 
+  testWidgets(
+    'Moves tab version filter hides unavailable methods and restores selection',
+    (tester) async {
+      final pokemon = _samplePokemon();
+      _arrangeCatalogDependencies(pokemon);
+
+      await tester.pumpWidget(const MyApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bulbasaur'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Moves'));
+      await tester.pumpAndSettle();
+
+      final machineFinder = find.widgetWithText(ChoiceChip, 'Machine');
+
+      await tester.tap(machineFinder.first);
+      await tester.pumpAndSettle();
+      expect(find.text('Echoed Voice'), findsOneWidget);
+
+      await tester.tap(
+        find
+            .widgetWithText(ChoiceChip, 'Omega Ruby & Alpha Sapphire')
+            .first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Echoed Voice'), findsNothing);
+      final allMethodsChip = tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, 'All methods'),
+      );
+      expect(allMethodsChip.selected, isTrue);
+      expect(machineFinder, findsNothing);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'All versions'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Echoed Voice'), findsOneWidget);
+      final machineChipAfter =
+          tester.widget<ChoiceChip>(machineFinder.first);
+      expect(machineChipAfter.selected, isTrue);
+    },
+  );
+
   testWidgets('Shows selection bar after selecting a Pokemon', (tester) async {
     final pokemon = _samplePokemon();
     _arrangeCatalogDependencies(pokemon);
@@ -470,6 +514,20 @@ PokemonEntity _buildPokemon({
       method: 'Level up',
       type: 'normal',
       damageClass: 'physical',
+      versionDetails: const [
+        PokemonMoveVersionDetail(
+          versionGroupId: 15,
+          versionGroupName: 'Omega Ruby & Alpha Sapphire',
+          sortOrder: 15,
+          level: 1,
+        ),
+        PokemonMoveVersionDetail(
+          versionGroupId: 18,
+          versionGroupName: 'Ultra Sun & Ultra Moon',
+          sortOrder: 18,
+          level: 5,
+        ),
+      ],
       level: 1,
       power: 40,
       accuracy: 100,
@@ -478,10 +536,18 @@ PokemonEntity _buildPokemon({
     PokemonMoveSummary(
       moveId: id * 100 + 2,
       methodId: 'machine',
-      name: 'echoed-voice',
+      name: 'echoed voice',
       method: 'Machine',
       type: 'normal',
       damageClass: 'special',
+      versionDetails: const [
+        PokemonMoveVersionDetail(
+          versionGroupId: 18,
+          versionGroupName: 'Ultra Sun & Ultra Moon',
+          sortOrder: 18,
+          level: null,
+        ),
+      ],
       level: null,
       power: 40,
       accuracy: 100,

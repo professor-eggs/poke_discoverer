@@ -15,6 +15,11 @@ class PokemonCsvParser {
     required List<Map<String, String>> moveDamageClasses,
     required List<Map<String, String>> moveLearnMethods,
     required List<Map<String, String>> moveLearnMethodProse,
+    required List<Map<String, String>> versionGroups,
+    required List<Map<String, String>> versionGroupRegions,
+    required List<Map<String, String>> versionGroupMethodAvailability,
+    required List<Map<String, String>> versions,
+    required List<Map<String, String>> versionNames,
   }) {
     final statNameMap = {
       for (final row in stats)
@@ -60,10 +65,22 @@ class PokemonCsvParser {
       moveLearnMethods: moveLearnMethods,
       moveLearnMethodProse: moveLearnMethodProse,
     );
+    final methodAvailabilityByVersionGroup =
+        _buildVersionGroupMethodAvailabilityMap(
+      rows: versionGroupMethodAvailability,
+    );
+    final versionInfoById = _buildVersionGroupInfoMap(
+      versionGroups: versionGroups,
+      versionGroupRegions: versionGroupRegions,
+      versions: versions,
+      versionNames: versionNames,
+    );
     final movesByPokemon = _groupMovesByPokemon(
       pokemonMoves: pokemonMoves,
       moveInfoById: moveInfoById,
       methodNameById: methodNameById,
+      versionInfoById: versionInfoById,
+      methodAvailabilityByVersionGroup: methodAvailabilityByVersionGroup,
     );
 
     final entities = <PokemonEntity>[];
@@ -186,14 +203,24 @@ class _MethodName {
   final String displayName;
 }
 
-class _MoveAggregate {
-  _MoveAggregate({
-    required this.moveId,
-    required this.methodId,
+class _VersionGroupInfo {
+  const _VersionGroupInfo({
+    required this.id,
+    required this.displayName,
+    required this.sortOrder,
+    this.regionId,
   });
 
-  final int moveId;
-  final int methodId;
+  final int id;
+  final String displayName;
+  final int sortOrder;
+  final int? regionId;
+}
+
+class _VersionEntry {
+  _VersionEntry({required this.versionGroupId});
+
+  final int versionGroupId;
   int? _minLevel;
 
   void registerLevel(int? level) {
@@ -204,6 +231,35 @@ class _MoveAggregate {
   }
 
   int? get minLevel => _minLevel;
+}
+
+class _MoveAggregate {
+  _MoveAggregate({
+    required this.moveId,
+    required this.methodId,
+  });
+
+  final int moveId;
+  final int methodId;
+  final Map<int, _VersionEntry> versions = <int, _VersionEntry>{};
+
+  void registerEntry({required int versionGroupId, int? level}) {
+    versions
+        .putIfAbsent(versionGroupId, () => _VersionEntry(versionGroupId: versionGroupId))
+        .registerLevel(level);
+  }
+
+  int? get minLevel {
+    int? min;
+    for (final entry in versions.values) {
+      final level = entry.minLevel;
+      if (level == null) continue;
+      if (min == null || level < min) {
+        min = level;
+      }
+    }
+    return min;
+  }
 }
 
 Map<int, _MoveInfo> _buildMoveInfoMap({
@@ -289,10 +345,116 @@ Map<int, _MethodName> _buildMoveMethodMap({
   return map;
 }
 
+Map<int, _VersionGroupInfo> _buildVersionGroupInfoMap({
+  required List<Map<String, String>> versionGroups,
+  required List<Map<String, String>> versionGroupRegions,
+  required List<Map<String, String>> versions,
+  required List<Map<String, String>> versionNames,
+}) {
+  const englishLanguageId = 9;
+  final regionByGroup = <int, int>{};
+  for (final row in versionGroupRegions) {
+    final groupId = PokemonCsvParser._parseInt(row, 'version_group_id');
+    final regionId = int.tryParse(row['region_id'] ?? '');
+    if (regionId == null) continue;
+    regionByGroup.putIfAbsent(groupId, () => regionId);
+  }
+
+  final versionIdsByGroup = <int, List<int>>{};
+  for (final row in versions) {
+    final groupId = PokemonCsvParser._parseInt(row, 'version_group_id');
+    final versionId = PokemonCsvParser._parseInt(row, 'id');
+    versionIdsByGroup.putIfAbsent(groupId, () => <int>[]).add(versionId);
+  }
+
+  final englishVersionNames = <int, String>{
+    for (final row in versionNames)
+      if (PokemonCsvParser._parseInt(row, 'local_language_id') ==
+          englishLanguageId)
+        PokemonCsvParser._parseInt(row, 'version_id'):
+            row['name'] ?? ''
+  };
+
+  final map = <int, _VersionGroupInfo>{};
+  for (final row in versionGroups) {
+    final id = PokemonCsvParser._parseInt(row, 'id');
+    final identifier = row['identifier'] ?? '';
+    final order = int.tryParse(row['order'] ?? '');
+
+    final versionIds =
+        List<int>.from(versionIdsByGroup[id] ?? const <int>[])..sort();
+    final versionDisplayNames = <String>[];
+    for (final versionId in versionIds) {
+      final name = englishVersionNames[versionId];
+      if (name != null && name.trim().isNotEmpty) {
+        versionDisplayNames.add(name.trim());
+      }
+    }
+
+    final displayName = _formatVersionGroupDisplayName(
+      identifier: identifier,
+      versionNames: versionDisplayNames,
+    );
+
+    map[id] = _VersionGroupInfo(
+      id: id,
+      displayName: displayName,
+      sortOrder: order ?? id,
+      regionId: regionByGroup[id],
+    );
+  }
+  return map;
+}
+
+Map<int, Set<int>> _buildVersionGroupMethodAvailabilityMap({
+  required List<Map<String, String>> rows,
+}) {
+  final map = <int, Set<int>>{};
+  for (final row in rows) {
+    final groupId = PokemonCsvParser._parseInt(row, 'version_group_id');
+    final methodId =
+        PokemonCsvParser._parseInt(row, 'pokemon_move_method_id');
+    map.putIfAbsent(groupId, () => <int>{}).add(methodId);
+  }
+  return map;
+}
+
+String _formatVersionGroupDisplayName({
+  required String identifier,
+  required List<String> versionNames,
+}) {
+  final cleaned = versionNames.where((name) => name.trim().isNotEmpty).toList();
+  if (cleaned.isEmpty) {
+    return _titleCaseIdentifier(identifier);
+  }
+  if (cleaned.length == 1) {
+    return cleaned.first;
+  }
+  if (cleaned.length == 2) {
+    return '${cleaned[0]} & ${cleaned[1]}';
+  }
+  final head = cleaned.sublist(0, cleaned.length - 1).join(', ');
+  final tail = cleaned.last;
+  return '$head & $tail';
+}
+
+String _titleCaseIdentifier(String identifier) {
+  final parts = identifier
+      .split(RegExp(r'[-_]'))
+      .where((part) => part.isNotEmpty)
+      .map(
+        (part) => part[0].toUpperCase() + part.substring(1),
+      )
+      .toList(growable: false);
+  return parts.isEmpty ? identifier : parts.join(' ');
+}
+
 Map<int, List<PokemonMoveSummary>> _groupMovesByPokemon({
   required List<Map<String, String>> pokemonMoves,
   required Map<int, _MoveInfo> moveInfoById,
   required Map<int, _MethodName> methodNameById,
+  required Map<int, _VersionGroupInfo> versionInfoById,
+  required Map<int, Set<int>> methodAvailabilityByVersionGroup,
 }) {
   final grouped = <int, Map<String, _MoveAggregate>>{};
 
@@ -301,6 +463,8 @@ Map<int, List<PokemonMoveSummary>> _groupMovesByPokemon({
     final moveId = PokemonCsvParser._parseInt(row, 'move_id');
     final methodId =
         PokemonCsvParser._parseInt(row, 'pokemon_move_method_id');
+    final versionGroupId =
+        PokemonCsvParser._parseInt(row, 'version_group_id');
     final moveInfo = moveInfoById[moveId];
     final methodInfo = methodNameById[methodId];
     if (moveInfo == null || methodInfo == null) {
@@ -318,7 +482,7 @@ Map<int, List<PokemonMoveSummary>> _groupMovesByPokemon({
       key,
       () => _MoveAggregate(moveId: moveId, methodId: methodId),
     );
-    aggregate.registerLevel(level);
+    aggregate.registerEntry(versionGroupId: versionGroupId, level: level);
   }
 
   final result = <int, List<PokemonMoveSummary>>{};
@@ -328,6 +492,39 @@ Map<int, List<PokemonMoveSummary>> _groupMovesByPokemon({
       final moveInfo = moveInfoById[aggregate.moveId];
       final methodInfo = methodNameById[aggregate.methodId];
       if (moveInfo == null || methodInfo == null) continue;
+
+      final versionDetailsEntries = <MapEntry<int, PokemonMoveVersionDetail>>[];
+      for (final entry in aggregate.versions.values) {
+        final allowedMethods =
+            methodAvailabilityByVersionGroup[entry.versionGroupId];
+        if (allowedMethods != null &&
+            !allowedMethods.contains(aggregate.methodId)) {
+          continue;
+        }
+        final versionInfo = versionInfoById[entry.versionGroupId];
+        final sortOrder = versionInfo?.sortOrder ?? entry.versionGroupId;
+        final name =
+            versionInfo?.displayName ?? 'Version ${entry.versionGroupId}';
+        versionDetailsEntries.add(
+          MapEntry(
+            sortOrder,
+            PokemonMoveVersionDetail(
+              versionGroupId: entry.versionGroupId,
+              versionGroupName: name,
+              sortOrder: sortOrder,
+              level: entry.minLevel,
+            ),
+          ),
+        );
+      }
+      if (versionDetailsEntries.isEmpty) {
+        continue;
+      }
+      versionDetailsEntries.sort((a, b) => a.key.compareTo(b.key));
+      final versionDetails = versionDetailsEntries
+          .map((entry) => entry.value)
+          .toList(growable: false);
+
       summaries.add(
         PokemonMoveSummary(
           moveId: moveInfo.moveId,
@@ -336,6 +533,7 @@ Map<int, List<PokemonMoveSummary>> _groupMovesByPokemon({
           method: methodInfo.displayName,
           type: moveInfo.type,
           damageClass: moveInfo.damageClass,
+          versionDetails: versionDetails,
           level: aggregate.minLevel,
           power: moveInfo.power,
           accuracy: moveInfo.accuracy,
