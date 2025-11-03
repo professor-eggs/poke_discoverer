@@ -10,6 +10,9 @@ import '../../data/services/pokemon_stat_calculator.dart';
 import '../../data/services/type_matchup_service.dart';
 import '../detail/pokemon_detail_page.dart';
 import '../widgets/sprite_avatar.dart';
+import '../shared/move_recommendations.dart';
+import '../shared/recommended_moves_widget.dart';
+import '../shared/stat_presets.dart';
 
 const List<String> _kStatOrder = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
 const Map<String, String> _kStatLabels = <String, String>{
@@ -52,92 +55,6 @@ void resetInitializeComparisonDependencies() {
   initializeComparisonDependencies = initializeDependencies;
 }
 
-enum StatPreset {
-  neutral,
-  physicalSweeper,
-  specialSweeper,
-  physicalWall,
-  specialWall
-}
-
-extension StatPresetData on StatPreset {
-  String get label {
-    switch (this) {
-      case StatPreset.neutral:
-        return 'Neutral';
-      case StatPreset.physicalSweeper:
-        return 'Physical sweeper';
-      case StatPreset.specialSweeper:
-        return 'Special sweeper';
-      case StatPreset.physicalWall:
-        return 'Physical wall';
-      case StatPreset.specialWall:
-        return 'Special wall';
-    }
-  }
-
-  String get shortLabel {
-    switch (this) {
-      case StatPreset.neutral:
-        return 'Neutral';
-      case StatPreset.physicalSweeper:
-        return 'Phys. Sweep';
-      case StatPreset.specialSweeper:
-        return 'Sp. Sweep';
-      case StatPreset.physicalWall:
-        return 'Phys. Wall';
-      case StatPreset.specialWall:
-        return 'Sp. Wall';
-    }
-  }
-
-  String get description {
-    switch (this) {
-      case StatPreset.neutral:
-        return 'No EV investment, neutral nature.';
-      case StatPreset.physicalSweeper:
-        return '+Atk / max Speed EVs, Adamant nature.';
-      case StatPreset.specialSweeper:
-        return '+Sp. Atk / max Speed EVs, Modest nature.';
-      case StatPreset.physicalWall:
-        return '+Def / max HP EVs, Impish nature.';
-      case StatPreset.specialWall:
-        return '+Sp. Def / max HP EVs, Careful nature.';
-    }
-  }
-
-  StatCalculationProfile get profile {
-    switch (this) {
-      case StatPreset.neutral:
-        return const StatCalculationProfile(individualValue: 31);
-      case StatPreset.physicalSweeper:
-        return const StatCalculationProfile(
-          individualValue: 31,
-          effortValues: <String, int>{'atk': 252, 'spe': 252, 'hp': 4},
-          natureMultipliers: <String, double>{'atk': 1.1, 'spa': 0.9},
-        );
-      case StatPreset.specialSweeper:
-        return const StatCalculationProfile(
-          individualValue: 31,
-          effortValues: <String, int>{'spa': 252, 'spe': 252, 'hp': 4},
-          natureMultipliers: <String, double>{'spa': 1.1, 'atk': 0.9},
-        );
-      case StatPreset.physicalWall:
-        return const StatCalculationProfile(
-          individualValue: 31,
-          effortValues: <String, int>{'hp': 252, 'def': 252, 'spd': 4},
-          natureMultipliers: <String, double>{'def': 1.1, 'atk': 0.9},
-        );
-      case StatPreset.specialWall:
-        return const StatCalculationProfile(
-          individualValue: 31,
-          effortValues: <String, int>{'hp': 252, 'spd': 252, 'def': 4},
-          natureMultipliers: <String, double>{'spd': 1.1, 'atk': 0.9},
-        );
-    }
-  }
-}
-
 String? _statKeyForSort(ComparisonSort sort) {
   switch (sort) {
     case ComparisonSort.hp:
@@ -175,6 +92,7 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
   StatDisplayMode _statMode = StatDisplayMode.base;
   final Map<int, int> _levels = <int, int>{};
   final Map<int, StatPreset> _presets = <int, StatPreset>{};
+  final Map<int, int?> _versionSelections = <int, int?>{};
   bool _isSeeding = false;
   String? _seedError;
 
@@ -239,6 +157,12 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
                 _presets[pokemonId] = preset;
               });
             },
+            versionSelections: _versionSelections,
+            onVersionChanged: (pokemonId, groupId) {
+              setState(() {
+                _versionSelections[pokemonId] = groupId;
+              });
+            },
             missingIds: missingIds,
             isSeeding: _isSeeding,
             seedError: _seedError,
@@ -253,7 +177,25 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
     for (final entity in pokemon) {
       _levels.putIfAbsent(entity.id, () => 50);
       _presets.putIfAbsent(entity.id, () => StatPreset.neutral);
+      _versionSelections.putIfAbsent(
+        entity.id,
+        () => _initialVersionGroupId(entity.defaultForm),
+      );
     }
+  }
+
+  int? _initialVersionGroupId(PokemonFormEntity form) {
+    int? bestId;
+    int? bestSort;
+    for (final move in form.moves) {
+      for (final detail in move.versionDetails) {
+        if (bestSort == null || detail.sortOrder < bestSort!) {
+          bestSort = detail.sortOrder;
+          bestId = detail.versionGroupId;
+        }
+      }
+    }
+    return bestId;
   }
 
   List<PokemonEntity> _orderByRequestedIds(
@@ -331,6 +273,8 @@ class _ComparisonView extends StatelessWidget {
     required this.onApplyLevelToAll,
     required this.presets,
     required this.onPresetChanged,
+    required this.versionSelections,
+    required this.onVersionChanged,
     required this.missingIds,
     required this.isSeeding,
     required this.seedError,
@@ -349,6 +293,8 @@ class _ComparisonView extends StatelessWidget {
   final ValueChanged<int> onApplyLevelToAll;
   final Map<int, StatPreset> presets;
   final void Function(int pokemonId, StatPreset preset) onPresetChanged;
+  final Map<int, int?> versionSelections;
+  final void Function(int pokemonId, int? versionGroupId) onVersionChanged;
   final List<int> missingIds;
   final bool isSeeding;
   final String? seedError;
@@ -567,6 +513,25 @@ class _ComparisonView extends StatelessWidget {
               final isBest = maxTotal != null && total == maxTotal;
               final level = levels[entity.id] ?? 50;
               final preset = presets[entity.id] ?? StatPreset.neutral;
+              final versionOptions = _versionOptionsForForm(entity.defaultForm);
+              var selectedVersion = versionSelections[entity.id];
+              if (selectedVersion != null &&
+                  !versionOptions.any((option) => option.id == selectedVersion)) {
+                selectedVersion = null;
+              }
+              final effectiveVersion =
+                  selectedVersion ?? (versionOptions.isNotEmpty ? versionOptions.first.id : null);
+              if (effectiveVersion != selectedVersion) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  onVersionChanged(entity.id, effectiveVersion);
+                });
+              }
+              final recommendedMoves = recommendMoves(
+                form: entity.defaultForm,
+                preset: preset,
+                level: level,
+                versionGroupId: effectiveVersion,
+              );
               final statLabel = statMode == StatDisplayMode.base
                   ? 'Base stat total'
                   : 'Lv $level total (${preset.shortLabel})';
@@ -583,6 +548,11 @@ class _ComparisonView extends StatelessWidget {
                 preset: preset,
                 onPresetChanged: (newPreset) =>
                     onPresetChanged(entity.id, newPreset),
+                versionOptions: versionOptions,
+                selectedVersionGroupId: effectiveVersion,
+                onVersionChanged: (groupId) =>
+                    onVersionChanged(entity.id, groupId),
+                recommendedMoves: recommendedMoves,
               );
             },
           ),
@@ -722,6 +692,37 @@ class _StatsTable extends StatelessWidget {
   }
 }
 
+class _VersionOption {
+  const _VersionOption({
+    required this.id,
+    required this.name,
+    required this.sortOrder,
+  });
+
+  final int id;
+  final String name;
+  final int sortOrder;
+}
+
+List<_VersionOption> _versionOptionsForForm(PokemonFormEntity form) {
+  final map = <int, _VersionOption>{};
+  for (final move in form.moves) {
+    for (final detail in move.versionDetails) {
+      map.putIfAbsent(
+        detail.versionGroupId,
+        () => _VersionOption(
+          id: detail.versionGroupId,
+          name: detail.versionGroupName,
+          sortOrder: detail.sortOrder,
+        ),
+      );
+    }
+  }
+  final list = map.values.toList(growable: false)
+    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  return list;
+}
+
 class _PokemonSummaryCard extends StatelessWidget {
   const _PokemonSummaryCard({
     required this.pokemon,
@@ -734,6 +735,10 @@ class _PokemonSummaryCard extends StatelessWidget {
     required this.onLevelChanged,
     required this.preset,
     required this.onPresetChanged,
+    required this.versionOptions,
+    required this.selectedVersionGroupId,
+    required this.onVersionChanged,
+    required this.recommendedMoves,
   });
 
   final PokemonEntity pokemon;
@@ -746,6 +751,10 @@ class _PokemonSummaryCard extends StatelessWidget {
   final ValueChanged<int> onLevelChanged;
   final StatPreset preset;
   final ValueChanged<StatPreset> onPresetChanged;
+  final List<_VersionOption> versionOptions;
+  final int? selectedVersionGroupId;
+  final ValueChanged<int?> onVersionChanged;
+  final List<MoveRecommendation> recommendedMoves;
 
   @override
   Widget build(BuildContext context) {
@@ -754,11 +763,6 @@ class _PokemonSummaryCard extends StatelessWidget {
     final accentColor = highlight
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurface;
-    final recommendedMoves = _recommendMoves(
-      form: defaultForm,
-      preset: preset,
-      level: level,
-    );
 
     return SizedBox(
       width: 220,
@@ -854,23 +858,29 @@ class _PokemonSummaryCard extends StatelessWidget {
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 4),
-                  DropdownButton<StatPreset>(
-                    key: ValueKey('presetDropdown-${pokemon.id}'),
-                    value: preset,
-                    isExpanded: true,
-                    items: StatPreset.values
-                        .map(
-                          (option) => DropdownMenuItem<StatPreset>(
-                            value: option,
-                            child: Text(option.label),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value != null) {
-                        onPresetChanged(value);
-                      }
-                    },
+                  Tooltip(
+                    message: preset.tooltip,
+                    child: DropdownButton<StatPreset>(
+                      key: ValueKey('presetDropdown-${pokemon.id}'),
+                      value: preset,
+                      isExpanded: true,
+                      items: StatPreset.values
+                          .map(
+                            (option) => DropdownMenuItem<StatPreset>(
+                              value: option,
+                              child: Tooltip(
+                                message: option.tooltip,
+                                child: Text(option.label),
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value != null) {
+                          onPresetChanged(value);
+                        }
+                      },
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -879,20 +889,59 @@ class _PokemonSummaryCard extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  if (preset.highlightBadges.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: preset.highlightBadges
+                          .map(
+                            (badge) => Chip(
+                              visualDensity: VisualDensity.compact,
+                              label: Text(badge),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ],
                 ],
-                if (recommendedMoves.isNotEmpty) ...[
+                if (versionOptions.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Recommended moves',
+                    'Version group',
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 4),
-                  _RecommendedMovesList(moves: recommendedMoves),
+                  DropdownButton<int?>(
+                    key: ValueKey('versionDropdown-${pokemon.id}'),
+                    value: selectedVersionGroupId,
+                    isExpanded: true,
+                    items: <DropdownMenuItem<int?>>[
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('All versions'),
+                      ),
+                      ...versionOptions.map(
+                        (option) => DropdownMenuItem<int?>(
+                          value: option.id,
+                          child: Text(option.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: onVersionChanged,
+                  ),
                 ],
-if (defaultForm.types.isNotEmpty) ...[
-  const SizedBox(height: 12),
-  _TypeMatchupPreview(types: defaultForm.types),
-],
+                const SizedBox(height: 12),
+                Text(
+                  'Recommended moves',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                RecommendedMovesList(moves: recommendedMoves),
+                if (defaultForm.types.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _TypeMatchupPreview(types: defaultForm.types),
+                ],
               ],
             ),
           ),
@@ -901,282 +950,6 @@ if (defaultForm.types.isNotEmpty) ...[
     );
   }
 }
-
-class _RecommendedMovesList extends StatelessWidget {
-  const _RecommendedMovesList({required this.moves});
-
-  final List<_RecommendedMove> moves;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final move in moves)
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: move == moves.last ? 0 : 6,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _formatMoveLabel(move.move.name),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: move.isStab || move.matchesPreset
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                    color: move.isStab
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface,
-                  ),
-                ),
-                if (move.tags.isNotEmpty)
-                  Text(
-                    move.tags.join(' • '),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _RecommendedMove {
-  const _RecommendedMove({
-    required this.move,
-    required this.tags,
-    required this.score,
-    required this.isStab,
-    required this.matchesPreset,
-  });
-
-  final PokemonMoveSummary move;
-  final List<String> tags;
-  final int score;
-  final bool isStab;
-  final bool matchesPreset;
-}
-
-List<_RecommendedMove> _recommendMoves({
-  required PokemonFormEntity form,
-  required StatPreset preset,
-  required int level,
-}) {
-  if (form.moves.isEmpty) {
-    return const <_RecommendedMove>[];
-  }
-  final types = form.types.map((type) => type.toLowerCase()).toSet();
-  final preferredDamageClass = _preferredDamageClassForPreset(preset);
-  final results = <_RecommendedMove>[];
-  for (final move in form.moves) {
-    if (!_isMoveAvailable(move, level)) {
-      continue;
-    }
-    final damageClass = move.damageClass.toLowerCase();
-    final isStab = types.contains(move.type.toLowerCase());
-    final matchesPreset = preferredDamageClass == null
-        ? (preset == StatPreset.physicalWall ||
-            preset == StatPreset.specialWall) &&
-            damageClass == 'status'
-        : damageClass == preferredDamageClass;
-
-    var score = 0;
-    if (isStab) {
-      score += 40;
-    }
-    if (matchesPreset) {
-      score += 60;
-    }
-    if (damageClass == 'status' &&
-        (preset == StatPreset.physicalWall ||
-            preset == StatPreset.specialWall)) {
-      score += 50;
-    }
-
-    final power = move.power ?? 0;
-    if (power > 0) {
-      score += power;
-    } else if (damageClass == 'status') {
-      score += 20;
-    }
-
-    if (move.accuracy != null && move.accuracy! >= 95) {
-      score += 5;
-    }
-    switch (move.methodId) {
-      case 'machine':
-        score += 10;
-        break;
-      case 'tutor':
-        score += 8;
-        break;
-      case 'egg':
-        score += 4;
-        break;
-      case 'level-up':
-        score += 6;
-        break;
-    }
-
-    if (preferredDamageClass != null && damageClass != preferredDamageClass) {
-      score -= 30;
-    }
-
-    score += _keywordBonus(move.name, preset);
-
-    if (score <= 0) {
-      continue;
-    }
-
-    final tags = _buildMoveTags(
-      move: move,
-      isStab: isStab,
-    );
-
-    results.add(
-      _RecommendedMove(
-        move: move,
-        tags: tags,
-        score: score,
-        isStab: isStab,
-        matchesPreset: matchesPreset,
-      ),
-    );
-  }
-
-  results.sort((a, b) {
-    final scoreCompare = b.score.compareTo(a.score);
-    if (scoreCompare != 0) return scoreCompare;
-    return a.move.name.compareTo(b.move.name);
-  });
-
-  return results.take(3).toList(growable: false);
-}
-
-String? _preferredDamageClassForPreset(StatPreset preset) {
-  switch (preset) {
-    case StatPreset.physicalSweeper:
-      return 'physical';
-    case StatPreset.specialSweeper:
-      return 'special';
-    case StatPreset.physicalWall:
-    case StatPreset.specialWall:
-      return 'status';
-    case StatPreset.neutral:
-      return null;
-  }
-}
-
-bool _isMoveAvailable(PokemonMoveSummary move, int targetLevel) {
-  if (move.methodId == 'level-up' && move.level != null && move.level! > 0) {
-    return move.level! <= targetLevel;
-  }
-  return true;
-}
-
-List<String> _buildMoveTags({
-  required PokemonMoveSummary move,
-  required bool isStab,
-}) {
-  final tags = <String>[];
-  if (isStab) {
-    tags.add('STAB');
-  }
-  final damageLabel = _formatDamageClass(move.damageClass);
-  if (damageLabel != null) {
-    tags.add(damageLabel);
-  }
-  if (move.power != null && move.power! > 0) {
-    tags.add('${move.power} BP');
-  } else if (move.damageClass.toLowerCase() == 'status') {
-    tags.add('Status');
-  }
-  if (move.methodId == 'level-up') {
-    final requiredLevel = move.level;
-    if (requiredLevel != null && requiredLevel > 0) {
-      tags.add('Lv $requiredLevel');
-    }
-  } else {
-    tags.add(move.method);
-  }
-  return tags;
-}
-
-String? _formatDamageClass(String damageClass) {
-  switch (damageClass.toLowerCase()) {
-    case 'physical':
-      return 'Physical';
-    case 'special':
-      return 'Special';
-    case 'status':
-      return null;
-    default:
-      return null;
-  }
-}
-
-String _formatMoveLabel(String rawName) {
-  final parts = rawName
-      .toLowerCase()
-      .split(RegExp(r'[- ]'))
-      .where((part) => part.isNotEmpty)
-      .map(
-        (part) => part[0].toUpperCase() + part.substring(1),
-      )
-      .toList(growable: false);
-  return parts.isEmpty ? rawName : parts.join(' ');
-}
-
-int _keywordBonus(String moveName, StatPreset preset) {
-  final slug = moveName.toLowerCase().replaceAll(' ', '-');
-  final bonus = _moveKeywordBonuses[slug] ?? 0;
-  if (bonus == 0) {
-    return 0;
-  }
-  if (preset == StatPreset.neutral) {
-    return (bonus / 2).round();
-  }
-  return bonus;
-}
-
-const Map<String, int> _moveKeywordBonuses = <String, int>{
-  'swords-dance': 30,
-  'dragon-dance': 28,
-  'bulk-up': 28,
-  'calm-mind': 28,
-  'nasty-plot': 32,
-  'shell-smash': 35,
-  'agility': 18,
-  'rock-polish': 18,
-  'quiver-dance': 32,
-  'iron-defense': 26,
-  'acid-armor': 26,
-  'barrier': 24,
-  'protect': 16,
-  'detect': 16,
-  'reflect': 24,
-  'light-screen': 24,
-  'recover': 34,
-  'roost': 34,
-  'soft-boiled': 34,
-  'synthesis': 28,
-  'moonlight': 28,
-  'rest': 20,
-  'leech-seed': 22,
-  'will-o-wisp': 20,
-  'toxic': 18,
-  'stealth-rock': 26,
-  'spikes': 24,
-  'toxic-spikes': 24,
-  'sticky-web': 24,
-  'substitute': 20,
-};
 
 class _TypeMatchupPreview extends StatelessWidget {
   const _TypeMatchupPreview({required this.types});

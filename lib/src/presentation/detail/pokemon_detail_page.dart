@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../bootstrap.dart' show appDependencies;
 import '../../data/models/pokemon_models.dart';
 import '../../data/services/type_matchup_service.dart';
+import '../shared/move_recommendations.dart';
+import '../shared/recommended_moves_widget.dart';
+import '../shared/stat_presets.dart';
 
 class PokemonDetailPage extends StatefulWidget {
   const PokemonDetailPage({required this.pokemonId, super.key});
@@ -380,6 +383,7 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
   late final List<_VersionOption> _versionOptions;
   String _activeMethodId = _allMethodsId;
   int? _selectedVersionGroupId;
+  StatPreset _selectedPreset = StatPreset.neutral;
 
   @override
   void initState() {
@@ -403,6 +407,17 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
             !availableMethodIds.contains(_activeMethodId))
         ? _allMethodsId
         : _activeMethodId;
+    var recommendedMoves = recommendMoves(
+      form: widget.pokemon.defaultForm,
+      preset: _selectedPreset,
+      level: 50,
+      versionGroupId: _selectedVersionGroupId,
+    );
+    if (effectiveMethodId != _allMethodsId) {
+      recommendedMoves = recommendedMoves
+          .where((rec) => rec.move.methodId == effectiveMethodId)
+          .toList(growable: false);
+    }
 
     if (groups.isEmpty) {
       return Center(
@@ -417,6 +432,7 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
       );
     }
 
+    final preset = _selectedPreset;
     final versionChips = <Widget>[
       ChoiceChip(
         label: const Text('All versions'),
@@ -467,56 +483,122 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
     final displayGroups =
         filteredGroups.isEmpty ? groups : filteredGroups;
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_versionOptions.isNotEmpty) ...[
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final chip in versionChips) ...[
-                    chip,
-                    const SizedBox(width: 8),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final chip in methodChips) ...[
-                  chip,
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView.builder(
-              itemCount: displayGroups.length,
-              itemBuilder: (context, index) {
-                final group = displayGroups[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == displayGroups.length - 1 ? 0 : 16,
-                  ),
-                  child: _MoveGroupCard(
-                    group: group,
-                    selectedVersionGroupId: _selectedVersionGroupId,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+    final sections = <Widget>[
+      Text(
+        'Battle role',
+        style: theme.textTheme.bodySmall,
       ),
+      const SizedBox(height: 4),
+      Tooltip(
+        message: preset.tooltip,
+        child: DropdownButton<StatPreset>(
+          key: const ValueKey('detailPresetDropdown'),
+          value: preset,
+          isExpanded: true,
+          items: StatPreset.values
+              .map(
+                (option) => DropdownMenuItem<StatPreset>(
+                  value: option,
+                  child: Tooltip(
+                    message: option.tooltip,
+                    child: Text(option.label),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                _selectedPreset = value;
+              });
+            }
+          },
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        preset.description,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      if (preset.highlightBadges.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: preset.highlightBadges
+              .map(
+                (badge) => Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(badge),
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ],
+      const SizedBox(height: 12),
+      Text(
+        'Recommended moves',
+        style: theme.textTheme.bodySmall,
+      ),
+      const SizedBox(height: 4),
+      RecommendedMovesList(moves: recommendedMoves),
+      const SizedBox(height: 16),
+      const Divider(),
+      const SizedBox(height: 16),
+    ];
+
+    if (_versionOptions.isNotEmpty) {
+      sections.addAll([
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final chip in versionChips) ...[
+                chip,
+                const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ]);
+    }
+
+    sections.addAll([
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final chip in methodChips) ...[
+              chip,
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+    ]);
+
+    for (var index = 0; index < displayGroups.length; index++) {
+      final group = displayGroups[index];
+      sections.add(
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: index == displayGroups.length - 1 ? 0 : 16,
+          ),
+          child: _MoveGroupCard(
+            group: group,
+            selectedVersionGroupId: _selectedVersionGroupId,
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: sections,
     );
   }
 

@@ -133,6 +133,51 @@ void main() {
   });
 
   testWidgets(
+    'Detail recommended moves respond to preset and version filters',
+    (tester) async {
+      final pokemon = _samplePokemon();
+      _arrangeCatalogDependencies(pokemon);
+
+      await tester.pumpWidget(const MyApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bulbasaur'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Moves'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recommended moves'), findsOneWidget);
+      expect(find.widgetWithText(Chip, 'Balanced'), findsOneWidget);
+      expect(find.text('Solar Beam'), findsNothing);
+      expect(find.text('Vine Whip'), findsWidgets);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'All methods').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Solar Beam'), findsWidgets);
+
+      await tester.tap(find.byKey(const ValueKey('detailPresetDropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Physical sweeper').last);
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(Chip, 'Balanced'), findsNothing);
+      expect(find.widgetWithText(Chip, 'Atk+'), findsOneWidget);
+      expect(find.text('Solar Beam'), findsWidgets);
+
+      final omegaChipFinder =
+          find.widgetWithText(ChoiceChip, 'Omega Ruby & Alpha Sapphire').first;
+      await tester.ensureVisible(omegaChipFinder);
+      await tester.tap(omegaChipFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Solar Beam'), findsNothing);
+      expect(find.text('Vine Whip'), findsWidgets);
+    },
+  );
+
+  testWidgets(
     'Moves tab version filter hides unavailable methods and restores selection',
     (tester) async {
       final pokemon = _samplePokemon();
@@ -150,7 +195,7 @@ void main() {
 
       await tester.tap(machineFinder.first);
       await tester.pumpAndSettle();
-      expect(find.text('Echoed Voice'), findsOneWidget);
+      expect(find.text('Echoed Voice'), findsWidgets);
 
       await tester.tap(
         find
@@ -169,7 +214,7 @@ void main() {
       await tester.tap(find.widgetWithText(ChoiceChip, 'All versions'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Echoed Voice'), findsOneWidget);
+      expect(find.text('Echoed Voice'), findsWidgets);
       final machineChipAfter =
           tester.widget<ChoiceChip>(machineFinder.first);
       expect(machineChipAfter.selected, isTrue);
@@ -393,11 +438,20 @@ void main() {
 
     expect(find.text('Recommended moves'), findsWidgets);
     expect(find.text('Vine Whip'), findsWidgets);
+    expect(find.text('Solar Beam'), findsNothing);
 
     await tester.ensureVisible(find.byKey(const ValueKey('presetDropdown-1')));
     await tester.tap(find.byKey(const ValueKey('presetDropdown-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Special sweeper').last);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('versionDropdown-1')),
+    );
+    await tester.tap(find.byKey(const ValueKey('versionDropdown-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ultra Sun & Ultra Moon').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Solar Beam'), findsWidgets);

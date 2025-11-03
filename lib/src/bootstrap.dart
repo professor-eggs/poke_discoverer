@@ -35,7 +35,6 @@ const _kCsvFiles = <String>[
   'pokemon_move_methods.csv',
   'pokemon_move_method_prose.csv',
   'version_groups.csv',
-  'version_group_names.csv',
 ];
 
 const _kSnapshotVersion = 'pokeapi-csv-2024-01-24';
