@@ -33,7 +33,9 @@ class _PokemonDetailPageState extends State<PokemonDetailPage> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Pokemon #${widget.pokemonId.toString().padLeft(3, '0')}'),
+          title: Text(
+            'Pokemon #${widget.pokemonId.toString().padLeft(3, '0')}',
+          ),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Stats'),
@@ -44,12 +46,8 @@ class _PokemonDetailPageState extends State<PokemonDetailPage> {
         body: FutureBuilder<PokemonEntity?>(
           future: _pokemonFuture,
           builder: (context, snapshot) {
-            Widget buildPlaceholder(Widget child) => TabBarView(
-                  children: [
-                    child,
-                    child,
-                  ],
-                );
+            Widget buildPlaceholder(Widget child) =>
+                TabBarView(children: [child, child]);
             if (snapshot.connectionState == ConnectionState.waiting) {
               return buildPlaceholder(
                 const Center(child: CircularProgressIndicator()),
@@ -63,9 +61,7 @@ class _PokemonDetailPageState extends State<PokemonDetailPage> {
             final pokemon = snapshot.data;
             if (pokemon == null) {
               return buildPlaceholder(
-                const _ErrorView(
-                  message: 'Pokemon not found in local cache.',
-                ),
+                const _ErrorView(message: 'Pokemon not found in local cache.'),
               );
             }
             return TabBarView(
@@ -403,7 +399,8 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
     final filteredMoves = _filterMoves(_selectedVersionGroupId);
     final groups = _groupMoves(filteredMoves);
     final availableMethodIds = groups.map((group) => group.id).toSet();
-    final effectiveMethodId = (_activeMethodId != _allMethodsId &&
+    final effectiveMethodId =
+        (_activeMethodId != _allMethodsId &&
             !availableMethodIds.contains(_activeMethodId))
         ? _allMethodsId
         : _activeMethodId;
@@ -480,14 +477,10 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
     final filteredGroups = effectiveMethodId == _allMethodsId
         ? groups
         : groups.where((group) => group.id == effectiveMethodId).toList();
-    final displayGroups =
-        filteredGroups.isEmpty ? groups : filteredGroups;
+    final displayGroups = filteredGroups.isEmpty ? groups : filteredGroups;
 
     final sections = <Widget>[
-      Text(
-        'Battle role',
-        style: theme.textTheme.bodySmall,
-      ),
+      Text('Battle role', style: theme.textTheme.bodySmall),
       const SizedBox(height: 4),
       Tooltip(
         message: preset.tooltip,
@@ -538,10 +531,7 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
         ),
       ],
       const SizedBox(height: 12),
-      Text(
-        'Recommended moves',
-        style: theme.textTheme.bodySmall,
-      ),
+      Text('Recommended moves', style: theme.textTheme.bodySmall),
       const SizedBox(height: 4),
       RecommendedMovesList(moves: recommendedMoves),
       const SizedBox(height: 16),
@@ -571,10 +561,7 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            for (final chip in methodChips) ...[
-              chip,
-              const SizedBox(width: 8),
-            ],
+            for (final chip in methodChips) ...[chip, const SizedBox(width: 8)],
           ],
         ),
       ),
@@ -596,10 +583,7 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: sections,
-    );
+    return ListView(padding: const EdgeInsets.all(16), children: sections);
   }
 
   List<PokemonMoveSummary> _filterMoves(int? versionGroupId) {
@@ -608,8 +592,9 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
     }
     return _allMoves
         .where(
-          (move) => move.versionDetails
-              .any((detail) => detail.versionGroupId == versionGroupId),
+          (move) => move.versionDetails.any(
+            (detail) => detail.versionGroupId == versionGroupId,
+          ),
         )
         .toList(growable: false);
   }
@@ -664,27 +649,31 @@ class _PokemonMovesViewState extends State<_PokemonMovesView> {
       grouped.putIfAbsent(id, () => <PokemonMoveSummary>[]).add(move);
     }
 
-    final groups = grouped.entries.map((entry) {
-      final id = entry.key;
-      final name = _titleCase(entry.value.first.method);
-      final sortedMoves = List<PokemonMoveSummary>.from(entry.value)
-        ..sort((a, b) {
-          final levelA = a.level ?? 999;
-          final levelB = b.level ?? 999;
-          final levelComparison = levelA.compareTo(levelB);
-          if (levelComparison != 0) return levelComparison;
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        });
-      return _MethodGroup(id: id, name: name, moves: sortedMoves);
-    }).toList(growable: false)
-      ..sort((a, b) {
-        final rank = methodRank(a.id).compareTo(methodRank(b.id));
-        if (rank != 0) return rank;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
+    final groups =
+        grouped.entries
+            .map((entry) {
+              final id = entry.key;
+              final name = _titleCase(entry.value.first.method);
+              final sortedMoves = List<PokemonMoveSummary>.from(entry.value)
+                ..sort((a, b) {
+                  final levelA = a.level ?? 999;
+                  final levelB = b.level ?? 999;
+                  final levelComparison = levelA.compareTo(levelB);
+                  if (levelComparison != 0) return levelComparison;
+                  return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+                });
+              return _MethodGroup(id: id, name: name, moves: sortedMoves);
+            })
+            .toList(growable: false)
+          ..sort((a, b) {
+            final rank = methodRank(a.id).compareTo(methodRank(b.id));
+            if (rank != 0) return rank;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
     return groups;
   }
 }
+
 class _VersionOption {
   const _VersionOption({
     required this.id,
@@ -772,14 +761,16 @@ class _MoveListTile extends StatelessWidget {
     final filteredDetails = selectedVersionGroupId == null
         ? move.versionDetails
         : move.versionDetails
-            .where((detail) => detail.versionGroupId == selectedVersionGroupId)
-            .toList(growable: false);
+              .where(
+                (detail) => detail.versionGroupId == selectedVersionGroupId,
+              )
+              .toList(growable: false);
 
     final displayDetails = filteredDetails.isNotEmpty
         ? filteredDetails
         : (selectedVersionGroupId == null
-            ? move.versionDetails
-            : const <PokemonMoveVersionDetail>[]);
+              ? move.versionDetails
+              : const <PokemonMoveVersionDetail>[]);
 
     int? resolveLevel() {
       final Iterable<PokemonMoveVersionDetail> search =
@@ -813,15 +804,17 @@ class _MoveListTile extends StatelessWidget {
       return Wrap(
         spacing: 6,
         runSpacing: 6,
-        children: displayDetails.map((detail) {
-          final label = detail.level != null && detail.level! > 0
-              ? '${detail.versionGroupName} (Lv ${detail.level})'
-              : detail.versionGroupName;
-          return Chip(
-            visualDensity: VisualDensity.compact,
-            label: Text(label),
-          );
-        }).toList(growable: false),
+        children: displayDetails
+            .map((detail) {
+              final label = detail.level != null && detail.level! > 0
+                  ? '${detail.versionGroupName} (Lv ${detail.level})'
+                  : detail.versionGroupName;
+              return Chip(
+                visualDensity: VisualDensity.compact,
+                label: Text(label),
+              );
+            })
+            .toList(growable: false),
       );
     }
 
@@ -842,7 +835,7 @@ class _MoveListTile extends StatelessWidget {
               ),
             ];
             final versionWidget = buildVersionWrap();
-            final shouldShowVersion = !(versionWidget is SizedBox);
+            final shouldShowVersion = versionWidget is! SizedBox;
             if (shouldShowVersion) {
               children
                 ..add(const SizedBox(height: 6))
@@ -852,9 +845,7 @@ class _MoveListTile extends StatelessWidget {
           }(),
         ),
       ),
-      leading: Chip(
-        label: Text(_titleCase(move.type)),
-      ),
+      leading: Chip(label: Text(_titleCase(move.type))),
       trailing: Text(
         trailingLabel,
         style: theme.textTheme.bodyMedium?.copyWith(

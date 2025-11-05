@@ -166,8 +166,9 @@ void main() {
       expect(find.widgetWithText(Chip, 'Atk+'), findsOneWidget);
       expect(find.text('Solar Beam'), findsWidgets);
 
-      final omegaChipFinder =
-          find.widgetWithText(ChoiceChip, 'Omega Ruby & Alpha Sapphire').first;
+      final omegaChipFinder = find
+          .widgetWithText(ChoiceChip, 'Omega Ruby & Alpha Sapphire')
+          .first;
       await tester.ensureVisible(omegaChipFinder);
       await tester.tap(omegaChipFinder);
       await tester.pumpAndSettle();
@@ -198,9 +199,7 @@ void main() {
       expect(find.text('Echoed Voice'), findsWidgets);
 
       await tester.tap(
-        find
-            .widgetWithText(ChoiceChip, 'Omega Ruby & Alpha Sapphire')
-            .first,
+        find.widgetWithText(ChoiceChip, 'Omega Ruby & Alpha Sapphire').first,
       );
       await tester.pumpAndSettle();
 
@@ -215,8 +214,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Echoed Voice'), findsWidgets);
-      final machineChipAfter =
-          tester.widget<ChoiceChip>(machineFinder.first);
+      final machineChipAfter = tester.widget<ChoiceChip>(machineFinder.first);
       expect(machineChipAfter.selected, isTrue);
     },
   );
@@ -399,12 +397,15 @@ void main() {
     await tester.tap(find.byKey(const Key('comparisonSortDirection')));
     await tester.pumpAndSettle();
 
-    final bulbasaurLeft =
-        tester.getTopLeft(find.byKey(const ValueKey('comparison-card-1'))).dx;
-    final squirtleLeft =
-        tester.getTopLeft(find.byKey(const ValueKey('comparison-card-7'))).dx;
-    final charmanderLeft =
-        tester.getTopLeft(find.byKey(const ValueKey('comparison-card-4'))).dx;
+    final bulbasaurLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('comparison-card-1')))
+        .dx;
+    final squirtleLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('comparison-card-7')))
+        .dx;
+    final charmanderLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('comparison-card-4')))
+        .dx;
 
     expect(bulbasaurLeft, lessThan(squirtleLeft));
     expect(squirtleLeft, lessThan(charmanderLeft));
@@ -446,9 +447,7 @@ void main() {
     await tester.tap(find.text('Special sweeper').last);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('versionDropdown-1')),
-    );
+    await tester.ensureVisible(find.byKey(const ValueKey('versionDropdown-1')));
     await tester.tap(find.byKey(const ValueKey('versionDropdown-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ultra Sun & Ultra Moon').last);
@@ -500,8 +499,7 @@ void main() {
     await tester.tap(find.text('Computed'));
     await tester.pumpAndSettle();
 
-    final presetDropdown =
-        find.byKey(const ValueKey('presetDropdown-1')).first;
+    final presetDropdown = find.byKey(const ValueKey('presetDropdown-1')).first;
     await tester.ensureVisible(presetDropdown);
     await tester.tap(presetDropdown);
     await tester.pumpAndSettle();
@@ -510,10 +508,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Phys. Sweep'), findsWidgets);
-    expect(
-      find.text('+Atk / max Speed EVs, Adamant nature.'),
-      findsOneWidget,
-    );
+    expect(find.text('+Atk / max Speed EVs, Adamant nature.'), findsOneWidget);
   });
 
   testWidgets('Comparison page surfaces missing data banner and seeds cache', (
@@ -584,23 +579,23 @@ PokemonEntity _buildPokemon({
             methodId: 'level-up',
             name: 'tackle',
             method: 'Level up',
-      type: 'normal',
-      damageClass: 'physical',
-      versionDetails: const [
-        PokemonMoveVersionDetail(
-          versionGroupId: 15,
-          versionGroupName: 'Omega Ruby & Alpha Sapphire',
-          sortOrder: 15,
-          level: 1,
-        ),
-        PokemonMoveVersionDetail(
-          versionGroupId: 18,
-          versionGroupName: 'Ultra Sun & Ultra Moon',
-          sortOrder: 18,
-          level: 5,
-        ),
-      ],
-      level: 1,
+            type: 'normal',
+            damageClass: 'physical',
+            versionDetails: const [
+              PokemonMoveVersionDetail(
+                versionGroupId: 15,
+                versionGroupName: 'Omega Ruby & Alpha Sapphire',
+                sortOrder: 15,
+                level: 1,
+              ),
+              PokemonMoveVersionDetail(
+                versionGroupId: 18,
+                versionGroupName: 'Ultra Sun & Ultra Moon',
+                sortOrder: 18,
+                level: 5,
+              ),
+            ],
+            level: 1,
             power: 40,
             accuracy: 100,
             pp: 35,
@@ -626,7 +621,7 @@ PokemonEntity _buildPokemon({
             pp: 15,
           ),
         ]
-      : List<PokemonMoveSummary>.from(moves!);
+      : List<PokemonMoveSummary>.from(moves);
 
   if (types.contains('grass')) {
     effectiveMoves
@@ -777,7 +772,7 @@ PokemonEntity _buildPokemon({
         id: id,
         name: name,
         isDefault: true,
-          types: types,
+        types: types,
         stats: statValues,
         sprites: const [
           MediaAssetReference(assetId: 'sprite', kind: MediaAssetKind.sprite),

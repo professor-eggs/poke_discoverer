@@ -38,10 +38,10 @@ void main() {
   );
 
   PokemonCacheEntry newEntry(DateTime timestamp) => PokemonCacheEntry(
-        pokemonId: pokemonId,
-        pokemon: demoPokemon,
-        lastFetched: timestamp,
-      );
+    pokemonId: pokemonId,
+    pokemon: demoPokemon,
+    lastFetched: timestamp,
+  );
 
   setUpAll(() {
     sqfliteFfiInit();
@@ -108,11 +108,9 @@ void main() {
             name: 'bulbasaur',
             isDefault: true,
             types: ['grass', 'poison'],
-            stats: [
-              PokemonStatValue(statId: 'hp', baseValue: 45),
-            ],
+            stats: [PokemonStatValue(statId: 'hp', baseValue: 45)],
             sprites: [],
-            moves: const [],
+            moves: [],
           ),
         ],
       ),

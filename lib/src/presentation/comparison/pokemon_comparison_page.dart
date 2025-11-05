@@ -189,7 +189,7 @@ class _PokemonComparisonPageState extends State<PokemonComparisonPage> {
     int? bestSort;
     for (final move in form.moves) {
       for (final detail in move.versionDetails) {
-        if (bestSort == null || detail.sortOrder < bestSort!) {
+        if (bestSort == null || detail.sortOrder < bestSort) {
           bestSort = detail.sortOrder;
           bestId = detail.versionGroupId;
         }
@@ -324,8 +324,10 @@ class _ComparisonView extends StatelessWidget {
           ? baseStatsFor(entity)
           : computedStatsFor(entity);
       statsByPokemon[entity.id] = stats;
-      totalsByPokemon[entity.id] =
-          stats.values.fold<int>(0, (sum, value) => sum + value);
+      totalsByPokemon[entity.id] = stats.values.fold<int>(
+        0,
+        (sum, value) => sum + value,
+      );
     }
 
     final sortedPokemon = List<PokemonEntity>.from(pokemon);
@@ -431,7 +433,7 @@ class _ComparisonView extends StatelessWidget {
                   Expanded(
                     child: DropdownButtonFormField<ComparisonSort>(
                       key: const Key('comparisonSortDropdown'),
-                      value: sort,
+                      initialValue: sort,
                       decoration: const InputDecoration(
                         labelText: 'Sort by',
                         border: OutlineInputBorder(),
@@ -460,8 +462,7 @@ class _ComparisonView extends StatelessWidget {
                     message: sortAscending ? 'Ascending' : 'Descending',
                     child: IconButton.filledTonal(
                       key: const Key('comparisonSortDirection'),
-                      onPressed: () =>
-                          onSortAscendingChanged(!sortAscending),
+                      onPressed: () => onSortAscendingChanged(!sortAscending),
                       icon: Icon(
                         sortAscending
                             ? Icons.arrow_upward
@@ -516,11 +517,14 @@ class _ComparisonView extends StatelessWidget {
               final versionOptions = _versionOptionsForForm(entity.defaultForm);
               var selectedVersion = versionSelections[entity.id];
               if (selectedVersion != null &&
-                  !versionOptions.any((option) => option.id == selectedVersion)) {
+                  !versionOptions.any(
+                    (option) => option.id == selectedVersion,
+                  )) {
                 selectedVersion = null;
               }
               final effectiveVersion =
-                  selectedVersion ?? (versionOptions.isNotEmpty ? versionOptions.first.id : null);
+                  selectedVersion ??
+                  (versionOptions.isNotEmpty ? versionOptions.first.id : null);
               if (effectiveVersion != selectedVersion) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   onVersionChanged(entity.id, effectiveVersion);
@@ -853,10 +857,7 @@ class _PokemonSummaryCard extends StatelessWidget {
                     onLevelChanged: onLevelChanged,
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Battle role',
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  Text('Battle role', style: theme.textTheme.bodySmall),
                   const SizedBox(height: 4),
                   Tooltip(
                     message: preset.tooltip,
@@ -907,10 +908,7 @@ class _PokemonSummaryCard extends StatelessWidget {
                 ],
                 if (versionOptions.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    'Version group',
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  Text('Version group', style: theme.textTheme.bodySmall),
                   const SizedBox(height: 4),
                   DropdownButton<int?>(
                     key: ValueKey('versionDropdown-${pokemon.id}'),
@@ -932,10 +930,7 @@ class _PokemonSummaryCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 12),
-                Text(
-                  'Recommended moves',
-                  style: theme.textTheme.bodySmall,
-                ),
+                Text('Recommended moves', style: theme.textTheme.bodySmall),
                 const SizedBox(height: 4),
                 RecommendedMovesList(moves: recommendedMoves),
                 if (defaultForm.types.isNotEmpty) ...[
@@ -1041,10 +1036,7 @@ class _MatchupRow extends StatelessWidget {
 }
 
 class _GlobalLevelControl extends StatefulWidget {
-  const _GlobalLevelControl({
-    required this.sharedLevel,
-    required this.onApply,
-  });
+  const _GlobalLevelControl({required this.sharedLevel, required this.onApply});
 
   final int? sharedLevel;
   final ValueChanged<int> onApply;

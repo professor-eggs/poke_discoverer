@@ -14,7 +14,7 @@ const String spriteBaseUrl = String.fromEnvironment(
 
 String getSpriteUrl({required int formId, bool shiny = false}) {
   final suffix = shiny ? '_shiny' : '';
-  return '${spriteBaseUrl}${formId}${suffix}.png?raw=true';
+  return '$spriteBaseUrl$formId$suffix.png?raw=true';
 }
 
 class SpriteAvatar extends StatelessWidget {

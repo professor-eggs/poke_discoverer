@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../data/models/pokemon_models.dart';
 import 'move_recommendations.dart';
 
 class RecommendedMovesList extends StatelessWidget {
-  const RecommendedMovesList({
-    super.key,
-    required this.moves,
-  });
+  const RecommendedMovesList({super.key, required this.moves});
 
   final List<MoveRecommendation> moves;
 
@@ -29,9 +25,7 @@ class RecommendedMovesList extends StatelessWidget {
       children: [
         for (final move in moves)
           Padding(
-            padding: EdgeInsets.only(
-              bottom: move == moves.last ? 0 : 6,
-            ),
+            padding: EdgeInsets.only(bottom: move == moves.last ? 0 : 6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -74,9 +68,7 @@ String _formatMoveLabel(String rawName) {
       .toLowerCase()
       .split(RegExp(r'[- ]'))
       .where((part) => part.isNotEmpty)
-      .map(
-        (part) => part[0].toUpperCase() + part.substring(1),
-      )
+      .map((part) => part[0].toUpperCase() + part.substring(1))
       .toList(growable: false);
   return parts.isEmpty ? rawName : parts.join(' ');
 }
